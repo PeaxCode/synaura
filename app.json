@@ -9,10 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.peax.synaura"
+      "bundleIdentifier": "com.synaura.app"
     },
     "android": {
-      "package": "com.peax.synaura",
+      "package": "com.synaura.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -21,13 +21,9 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -37,7 +33,8 @@
         }
       ],
       "react-native-audio-api",
-      "./plugins/withRNFirebaseDisableSPM.js"
+      "./plugins/withRNFirebaseDisableSPM.js",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
