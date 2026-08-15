@@ -11,6 +11,8 @@ import { useEffect } from 'react';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import { supabase } from '@/src/data/client';
+import { syncOnboardingAnswersToProfile } from '@/src/data/onboarding';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -25,11 +27,22 @@ export default function RootLayout() {
     });
 
     useEffect(() => {
-        if (!fontsLoaded && !fontError) return;
+        if (!fontsLoaded && !fontError)
+            return;
         SplashScreen.hideAsync();
     }, [fontsLoaded, fontError]);
 
-    if (!fontsLoaded && !fontError) return null;
+    useEffect(() => {
+        const { data } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_IN')
+                syncOnboardingAnswersToProfile();
+        });
+
+        return () => data.subscription.unsubscribe();
+    }, []);
+
+    if (!fontsLoaded && !fontError)
+        return null;
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>

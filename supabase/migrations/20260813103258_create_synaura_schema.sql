@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     full_name TEXT,
     default_mode VARCHAR(10) CHECK (default_mode IN ('focus', 'relax')),
     onboarding_completed_at TIMESTAMPTZ,
+    onboarding_answers JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

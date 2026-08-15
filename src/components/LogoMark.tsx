@@ -3,8 +3,6 @@ import { useEffect } from 'react';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { COLORS } from '@/src/constants/theme';
 
-// pulse=true adds a subtle scale "breathing" on top of the opacity fade — used on the
-// splash screen to read as a loading beat rather than a static badge.
 export default function LogoMark({ size = 92, pulse = false }: { size?: number; pulse?: boolean }) {
     const opacity = useSharedValue(0.55);
     const scale = useSharedValue(1);

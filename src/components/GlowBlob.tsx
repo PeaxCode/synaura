@@ -20,7 +20,9 @@ export default function GlowBlob({ config }: { config: GlowBlobConfig }) {
     const progress = useSharedValue(0);
 
     useEffect(() => {
-        if (!animate) return;
+        if (!animate)
+            return;
+
         progress.value = withRepeat(
             withTiming(1, { duration: halfDuration, easing: Easing.inOut(Easing.ease) }),
             -1,

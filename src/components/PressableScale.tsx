@@ -10,7 +10,6 @@ type Props = Omit<PressableProps, 'style'> & {
     scaleTo?: number;
 };
 
-// Small tactile press feedback — shrinks slightly on press-in, springs back on release.
 export default function PressableScale({ children, style, scaleTo = 0.96, onPressIn, onPressOut, ...rest }: Props) {
     const scale = useSharedValue(1);
 
