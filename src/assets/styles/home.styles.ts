@@ -20,14 +20,8 @@ const createStyles = (COLORS: any) =>
             color: COLORS.neutral[400],
         },
         greeting: {
-            marginTop: 32,
-            fontSize: 13,
-            fontFamily: FONTS.medium,
-            color: COLORS.neutral[400],
-        },
-        headline: {
             marginTop: 6,
-            fontSize: 26,
+            fontSize: 28,
             fontFamily: FONTS.semibold,
             letterSpacing: -0.4,
             color: COLORS.text,
@@ -60,12 +54,6 @@ const createStyles = (COLORS: any) =>
             fontSize: 18,
             fontFamily: FONTS.semibold,
             color: COLORS.accent,
-            textAlign: 'center',
-        },
-        ctaSubtitle: {
-            fontSize: 13,
-            fontFamily: FONTS.regular,
-            color: COLORS.neutral[500],
             textAlign: 'center',
         },
         recentSection: {
@@ -101,18 +89,21 @@ const createStyles = (COLORS: any) =>
             fontFamily: FONTS.regular,
             color: COLORS.neutral[500],
         },
-        emptyTitle: {
+        emptyBox: {
             marginTop: 14,
+            paddingVertical: 28,
+            paddingHorizontal: 20,
+            borderRadius: RADIUS.lg,
+            borderWidth: 1.5,
+            borderStyle: 'dashed',
+            borderColor: COLORS.divider,
+            alignItems: 'center',
+        },
+        emptyTitle: {
             fontSize: 14,
             fontFamily: FONTS.medium,
             color: COLORS.neutral[400],
-        },
-        emptyBody: {
-            marginTop: 4,
-            fontSize: 13,
-            fontFamily: FONTS.regular,
-            color: COLORS.neutral[600],
-            lineHeight: 18,
+            textAlign: 'center',
         },
     });
 

@@ -199,14 +199,6 @@ const createStyles = (COLORS: any) =>
         senseBarOn: {
             backgroundColor: COLORS.accentRamp[300],
         },
-        senseFootnote: {
-            marginTop: 18,
-            fontSize: 12,
-            fontFamily: FONTS.regular,
-            lineHeight: 19,
-            textAlign: 'center',
-            color: 'rgba(233,233,237,0.38)',
-        },
 
         /* PROOF — baseline left, Synaura right */
         proofRow: {
@@ -237,27 +229,12 @@ const createStyles = (COLORS: any) =>
             fontSize: 27,
             fontFamily: FONTS.semibold,
             letterSpacing: -0.4,
-            color: COLORS.neutral[900],
+            color: COLORS.text,
         },
         proofValueGhost: {
             fontSize: 19,
             fontFamily: FONTS.semibold,
             color: 'rgba(233,233,237,0.7)',
-        },
-        proofMetric: {
-            marginTop: 2,
-            fontSize: 9,
-            fontFamily: FONTS.medium,
-            letterSpacing: 1.3,
-            textAlign: 'center',
-            color: 'rgba(41,43,49,0.7)',
-        },
-        proofMetricGhost: {
-            marginTop: 2,
-            fontSize: 9,
-            fontFamily: FONTS.medium,
-            letterSpacing: 1.3,
-            color: 'rgba(233,233,237,0.4)',
         },
         proofLabel: {
             fontSize: 10,
@@ -271,14 +248,6 @@ const createStyles = (COLORS: any) =>
             letterSpacing: 1.2,
             color: 'rgba(233,233,237,0.75)',
         },
-        proofCaption: {
-            marginBottom: 18,
-            fontSize: 11,
-            fontFamily: FONTS.regular,
-            textAlign: 'center',
-            color: 'rgba(233,233,237,0.35)',
-        },
-
         /* PRIMER */
         primerList: {
             gap: 24,
@@ -382,17 +351,10 @@ const createStyles = (COLORS: any) =>
         },
 
         /* FIRST AURA */
-        auraKicker: {
-            fontSize: 11,
-            fontFamily: FONTS.medium,
-            letterSpacing: 2.2,
-            textAlign: 'center',
-            color: 'rgba(233,233,237,0.45)',
-        },
         auraTitle: {
-            fontSize: 24,
+            fontSize: 26,
             fontFamily: FONTS.semibold,
-            letterSpacing: 3,
+            letterSpacing: -0.4,
             color: COLORS.text,
         },
         auraSub: {

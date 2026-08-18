@@ -14,7 +14,7 @@ type Mode = 'login' | 'register';
 
 const COPY: Record<Mode, { title: string; subtitle: string; cta: string }> = {
     login: {
-        title: 'Welcome',
+        title: 'Welcome back',
         subtitle: 'Your library is where you left it.',
         cta: 'Sign in',
     },

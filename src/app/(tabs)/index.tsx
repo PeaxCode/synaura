@@ -21,22 +21,28 @@ type RecentPlay = {
     durationSeconds: number;
 };
 
+function greetingForHour(hour: number) {
+    if (hour < 12)
+        return 'Good morning';
+    if (hour < 18)
+        return 'Good afternoon';
+    return 'Good evening';
+}
+
 // "Start a session" has no destination yet — the 4-axis pad screen is Faz 2.2
 // work. Recent plays read from `preset_plays` (see database.md) — the query is
 // real, it just has nothing to return until sessions can be saved (Faz 3.1).
 export default function HomeScreen() {
     const styles = createStyles(COLORS);
-    const [firstName, setFirstName] = useState<string | null>(null);
     const [recentPlays, setRecentPlays] = useState<RecentPlay[]>([]);
+
+    const greeting = greetingForHour(new Date().getHours());
 
     useEffect(() => {
         supabase.auth.getSession().then(async ({ data }) => {
             const user = data.session?.user;
             if (!user)
                 return;
-
-            const fullName = user.user_metadata?.full_name as string | undefined;
-            setFirstName(fullName?.split(' ')[0] ?? null);
 
             const { data: plays } = await supabase
                 .from('preset_plays')
@@ -65,17 +71,15 @@ export default function HomeScreen() {
                 <Text style={styles.brand}>SYNAURA</Text>
 
                 {/* GREETING */}
-                <Text style={styles.greeting}>{firstName ? `Welcome, ${firstName}` : 'Welcome'}</Text>
-                <Text style={styles.headline}>Let's make your first soundscape.</Text>
+                <Text style={styles.greeting}>{greeting}</Text>
 
                 {/* START SESSION */}
                 <View style={styles.ctaWrap}>
                     <PressableScale style={styles.ctaCard}>
                         <View style={styles.ctaIconBadge}>
-                            <Ionicons name="play" size={32} color={COLORS.accent} />
+                            <Ionicons name="play" size={44} color={COLORS.accent} />
                         </View>
                         <Text style={styles.ctaTitle}>Start a session</Text>
-                        <Text style={styles.ctaSubtitle}>about 30 seconds to set up</Text>
                     </PressableScale>
                 </View>
 
@@ -102,12 +106,9 @@ export default function HomeScreen() {
                             ))}
                         </ScrollView>
                     ) : (
-                        <>
-                            <Text style={styles.emptyTitle}>You haven't created a session yet</Text>
-                            <Text style={styles.emptyBody}>
-                                Anything you make can be saved here and replayed exactly.
-                            </Text>
-                        </>
+                        <View style={styles.emptyBox}>
+                            <Text style={styles.emptyTitle}>No sessions yet</Text>
+                        </View>
                     )}
                 </View>
             </ScrollView>

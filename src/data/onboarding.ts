@@ -74,14 +74,12 @@ export const SENSITIVITY_PHRASES: Record<SensitivityId, string> = {
     high: 'present enough to mask a noisy room',
 };
 
-export const PROOF_COPY: Record<GoalId, { sub: string; metric: string }> = {
+export const PROOF_COPY: Record<GoalId, { sub: string }> = {
     focus: {
-        sub: 'Listeners who play Synaura while working, studying or building projects report staying in deep focus far longer.',
-        metric: 'deeper focus',
+        sub: 'Listeners who play Synaura report staying focused far longer.',
     },
     relax: {
-        sub: 'Listeners who unwind with Synaura come back to work and study sessions noticeably sharper.',
-        metric: 'sharper return',
+        sub: 'Listeners who unwind with Synaura come back sharper.',
     },
 };
 

@@ -308,8 +308,6 @@ function OrbitButton({ label, onPress, style, textStyle }: OrbitButtonProps) {
     }
 
     const tipProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value + perimeter * ORBIT_HEAD }));
-    const midProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value + perimeter * ORBIT_HEAD * 3 }));
-    const tailProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value + perimeter * ORBIT_HEAD * 7 }));
     const haloProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value + perimeter * ORBIT_HEAD * 2 }));
 
     return (
@@ -335,20 +333,6 @@ function OrbitButton({ label, onPress, style, textStyle }: OrbitButtonProps) {
                     />
 
                     <AnimatedRect
-                        animatedProps={tailProps}
-                        x={inset}
-                        y={inset}
-                        width={w}
-                        height={h}
-                        rx={ORBIT_RADIUS}
-                        fill="none"
-                        stroke={COLORS.accent}
-                        strokeWidth={1.6}
-                        strokeOpacity={0.28}
-                        strokeLinecap="round"
-                        strokeDasharray={orbitDash(perimeter, 7)}
-                    />
-                    <AnimatedRect
                         animatedProps={haloProps}
                         x={inset}
                         y={inset}
@@ -361,20 +345,6 @@ function OrbitButton({ label, onPress, style, textStyle }: OrbitButtonProps) {
                         strokeOpacity={0.16}
                         strokeLinecap="round"
                         strokeDasharray={orbitDash(perimeter, 2)}
-                    />
-                    <AnimatedRect
-                        animatedProps={midProps}
-                        x={inset}
-                        y={inset}
-                        width={w}
-                        height={h}
-                        rx={ORBIT_RADIUS}
-                        fill="none"
-                        stroke={COLORS.accentRamp[400]}
-                        strokeWidth={1.8}
-                        strokeOpacity={0.65}
-                        strokeLinecap="round"
-                        strokeDasharray={orbitDash(perimeter, 3)}
                     />
                     <AnimatedRect
                         animatedProps={tipProps}
@@ -729,9 +699,7 @@ export default function OnboardingScreen() {
                         </View>
 
                         <Text style={styles.storyTitle}>The world got loud</Text>
-                        <Text style={styles.storyBody}>
-                            Notifications, feeds, open tabs. Attention breaks roughly every three minutes.
-                        </Text>
+                        <Text style={styles.storyBody}>Your attention breaks every three minutes.</Text>
                     </View>
 
                     <PressableScale style={styles.primaryButton} onPress={() => setStep(2)}>
@@ -750,9 +718,7 @@ export default function OnboardingScreen() {
                         </View>
 
                         <Text style={styles.storyTitle}>Sound can tune it back</Text>
-                        <Text style={styles.storyBody}>
-                            Synaura plays a living soundscape that holds focus or calm for as long as you need it.
-                        </Text>
+                        <Text style={styles.storyBody}>A soundscape that holds your focus or calm.</Text>
                     </View>
 
                     <PressableScale style={styles.primaryButton} onPress={() => setStep(3)}>
@@ -854,8 +820,6 @@ export default function OnboardingScreen() {
                             </PressableScale>
                         ))}
                     </View>
-
-                    <Text style={styles.senseFootnote}>Answers only shape your sound. Nothing is shared.</Text>
                 </Animated.View>
             )}
 
@@ -869,7 +833,6 @@ export default function OnboardingScreen() {
                         <View style={styles.proofColumn}>
                             <Animated.View style={[styles.proofBar, styles.proofBarGhost, baselineBarStyle]}>
                                 <Text style={styles.proofValueGhost}>1x</Text>
-                                <Text style={styles.proofMetricGhost}>BASELINE</Text>
                             </Animated.View>
                             <Text style={styles.proofLabel}>WITHOUT</Text>
                         </View>
@@ -882,13 +845,10 @@ export default function OnboardingScreen() {
                                 />
                                 <RisingLines height={proofBarHeight} />
                                 <Text style={styles.proofValue}>3.2x</Text>
-                                <Text style={styles.proofMetric}>{PROOF_COPY[goal].metric.toUpperCase()}</Text>
                             </Animated.View>
                             <Text style={styles.proofLabelBright}>WITH SYNAURA</Text>
                         </View>
                     </View>
-
-                    <Text style={styles.proofCaption}>self-reported, listeners active 2+ hrs/week</Text>
 
                     <PressableScale style={styles.primaryButton} onPress={() => setStep(7)}>
                         <Text style={styles.primaryButtonText}>Continue</Text>
@@ -1045,27 +1005,23 @@ export default function OnboardingScreen() {
                 </Animated.View>
             )}
 
-            {/* STEP 10 · FIRST AURA */}
+            {/* STEP 10 · READY */}
             {step === 10 && (
                 <Animated.View entering={FadeIn.duration(500)} style={styles.step}>
                     <View style={styles.centerBlock}>
-                        <Animated.Text entering={FadeInDown.delay(200).duration(900)} style={styles.auraKicker}>
-                            YOU TUNED YOUR FIRST SOUND
-                        </Animated.Text>
-
-                        <Animated.View entering={ZoomIn.delay(450).duration(1000)} style={{ marginVertical: 40 }}>
+                        <Animated.View entering={ZoomIn.delay(300).duration(1000)} style={{ marginTop: 20, marginBottom: 6 }}>
                             <AuraOrb size={210} rings={false} />
                         </Animated.View>
 
-                        <Animated.Text entering={FadeIn.delay(1400).duration(900)} style={styles.auraTitle}>
-                            FIRST AURA
+                        <Animated.Text entering={FadeIn.delay(900).duration(900)} style={styles.auraTitle}>
+                            Ready to listen
                         </Animated.Text>
-                        <Animated.Text entering={FadeInDown.delay(2000).duration(700)} style={styles.auraSub}>
-                            1 of 7 in the Aura series · yours to keep
+                        <Animated.Text entering={FadeInDown.delay(1500).duration(700)} style={styles.auraSub}>
+                            Saved and ready whenever you need it.
                         </Animated.Text>
                     </View>
 
-                    <OrbitButton label="Collect" onPress={() => router.replace('/(auth)')} />
+                    <OrbitButton label="Continue" onPress={() => router.replace('/(auth)')} />
                 </Animated.View>
             )}
         </SafeAreaView>
