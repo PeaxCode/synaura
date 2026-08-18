@@ -1,4 +1,5 @@
 import createStyles, { ONBOARDING_PAGE_PADDING } from '@/src/assets/styles/onboarding.styles';
+import { useMoodPreviewSound } from '@/src/hooks/useMoodPreviewSound';
 import AmbientBackground from '@/src/components/AmbientBackground';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS, FONTS } from '@/src/constants/theme';
@@ -172,10 +173,11 @@ interface MoodPadProps {
     size: number;
     position: SharedValue<{ x: number; y: number }>;
     onQuadrantChange: (index: number) => void;
+    onPositionChange: (x: number, y: number) => void;
     onFirstTouch: () => void;
 }
 
-function MoodPad({ size, position, onQuadrantChange, onFirstTouch }: MoodPadProps) {
+function MoodPad({ size, position, onQuadrantChange, onPositionChange, onFirstTouch }: MoodPadProps) {
     const quadrant = useSharedValue(-1);
     const touched = useSharedValue(false);
 
@@ -184,6 +186,7 @@ function MoodPad({ size, position, onQuadrantChange, onFirstTouch }: MoodPadProp
         const x = Math.min(1, Math.max(0, px / size));
         const y = Math.min(1, Math.max(0, py / size));
         position.value = { x, y };
+        runOnJS(onPositionChange)(x, y);
 
         const q = padQuadrant(x, y);
         if (q !== quadrant.value) {
@@ -584,6 +587,8 @@ export default function OnboardingScreen() {
     const barGrow = useSharedValue(0);
     const ringGrow = useSharedValue(0);
 
+    const { updatePosition } = useMoodPreviewSound(step === 8);
+
     const padSize = Math.min(262, width - ONBOARDING_PAGE_PADDING * 2 - 48);
     const waveWidth = width - ONBOARDING_PAGE_PADDING * 2 - 36;
     const proofBarHeight = Math.min(340, height * 0.4);
@@ -920,6 +925,7 @@ export default function OnboardingScreen() {
                                 size={padSize}
                                 position={padPosition}
                                 onQuadrantChange={setQuadrant}
+                                onPositionChange={updatePosition}
                                 onFirstTouch={() => setDragged(true)}
                             />
 

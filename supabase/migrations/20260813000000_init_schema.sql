@@ -1,7 +1,8 @@
 -- PROFILES TABLE
-CREATE TABLE IF NOT EXISTS profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT,
+    email TEXT,
     default_mode VARCHAR(10) CHECK (default_mode IN ('focus', 'relax')),
     onboarding_completed_at TIMESTAMPTZ,
     onboarding_answers JSONB,
@@ -61,23 +62,42 @@ CREATE TABLE IF NOT EXISTS preset_plays (
 );
 
 -- TRIGGERS
-CREATE FUNCTION handle_new_user()
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-    INSERT INTO public.profiles (id, full_name)
-    VALUES (NEW.id, NEW.raw_user_meta_data ->> 'full_name');
+    INSERT INTO public.profiles (id, full_name, email)
+    VALUES (NEW.id, NEW.raw_user_meta_data ->> 'full_name', NEW.email);
     RETURN NEW;
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-CREATE FUNCTION set_updated_at()
+CREATE OR REPLACE FUNCTION public.sync_profile_email()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.profiles SET email = NEW.email WHERE id = NEW.id;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_email_updated ON auth.users;
+CREATE TRIGGER on_auth_user_email_updated
+    AFTER UPDATE OF email ON auth.users
+    FOR EACH ROW
+    WHEN (OLD.email IS DISTINCT FROM NEW.email)
+    EXECUTE FUNCTION public.sync_profile_email();
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
@@ -87,18 +107,22 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS profiles_set_updated_at ON public.profiles;
 CREATE TRIGGER profiles_set_updated_at
-    BEFORE UPDATE ON profiles
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+DROP TRIGGER IF EXISTS entitlements_set_updated_at ON entitlements;
 CREATE TRIGGER entitlements_set_updated_at
     BEFORE UPDATE ON entitlements
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ROW LEVEL SECURITY
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY profiles_owner_select ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY profiles_owner_update ON profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS profiles_owner_select ON public.profiles;
+CREATE POLICY profiles_owner_select ON public.profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS profiles_owner_update ON public.profiles;
+CREATE POLICY profiles_owner_update ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 ALTER TABLE stems ENABLE ROW LEVEL SECURITY;
 CREATE POLICY stems_public_read ON stems FOR SELECT USING (true);
@@ -133,3 +157,18 @@ CREATE INDEX IF NOT EXISTS idx_featured_presets_mode ON featured_presets(mode, s
 CREATE INDEX IF NOT EXISTS idx_stems_layer ON stems(layer);
 CREATE INDEX IF NOT EXISTS idx_preset_plays_user_played ON preset_plays(user_id, played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_preset_plays_preset_id ON preset_plays(preset_id);
+
+-- AUTH METHOD LOOKUP
+CREATE OR REPLACE FUNCTION public.auth_methods_for_email(p_email TEXT)
+RETURNS TEXT[]
+LANGUAGE sql
+STABLE
+SECURITY DEFINER SET search_path = ''
+AS $$
+    SELECT COALESCE(ARRAY_AGG(DISTINCT i.provider), ARRAY[]::TEXT[])
+    FROM auth.identities i
+    JOIN auth.users u ON u.id = i.user_id
+    WHERE LOWER(u.email) = LOWER(TRIM(p_email));
+$$;
+REVOKE ALL ON FUNCTION public.auth_methods_for_email(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.auth_methods_for_email(TEXT) TO anon, authenticated;

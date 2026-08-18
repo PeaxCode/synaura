@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import createStyles from '@/src/assets/styles/settings.styles';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
-import { deleteAccount, linkGoogleAccount, unlinkGoogleAccount } from '@/src/data/auth';
+import { deleteAccount, linkGoogleAccount } from '@/src/data/auth';
 import { supabase } from '@/src/data/client';
 
 type Busy = 'none' | 'google' | 'delete';
@@ -31,47 +31,67 @@ export default function SettingsScreen() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const fullName = user?.user_metadata?.full_name as string | undefined;
-    const hasEmailIdentity = identities.some((i) => i.provider === 'email');
     const googleIdentity = identities.find((i) => i.provider === 'google');
-    const canUnlinkGoogle = identities.length > 1;
+    const isGuest = !!user?.is_anonymous;
 
     useFocusEffect(
         useCallback(() => {
-            supabase.auth.getSession().then(({ data }) => {
-                setUser(data.session?.user ?? null);
-            });
-            supabase.auth.getUserIdentities().then(({ data }) => {
-                setIdentities(data?.identities ?? []);
-            });
+            refreshAuthState();
         }, []),
     );
 
-    async function handleSignOut() {
-        await supabase.auth.signOut();
-        router.replace('/');
+    async function refreshAuthState() {
+        const [{ data: sessionData }, { data: identityData }] = await Promise.all([
+            supabase.auth.getSession(),
+            supabase.auth.getUserIdentities(),
+        ]);
+        setUser(sessionData.session?.user ?? null);
+        setIdentities(identityData?.identities ?? []);
     }
 
-    async function handleGoogleRow() {
-        if (busy !== 'none')
+    function handleSignOut() {
+        if (isGuest) {
+            Alert.alert(
+                'Sign out as guest?',
+                "You haven't linked a Google account. Signing out will permanently erase this guest account and everything in it.",
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Sign out', style: 'destructive', onPress: doSignOut },
+                ],
+            );
             return;
+        }
+
+        doSignOut();
+    }
+
+    async function doSignOut() {
+        await supabase.auth.signOut();
+        router.replace('/(auth)');
+    }
+
+    function handleGoogleRow() {
+        if (busy !== 'none' || googleIdentity)
+            return;
+
+        handleLinkGoogle();
+    }
+
+    async function handleLinkGoogle() {
         setErrorMessage(null);
         setBusy('google');
         try {
-            if (googleIdentity) {
-                if (!canUnlinkGoogle)
-                    throw new Error('Add another sign-in method before unlinking Google.');
-                await unlinkGoogleAccount(googleIdentity);
-                setIdentities((prev) => prev.filter((i) => i.identity_id !== googleIdentity.identity_id));
-            } else {
-                const success = await linkGoogleAccount();
-                if (success) {
-                    const { data } = await supabase.auth.getUserIdentities();
-                    setIdentities(data?.identities ?? []);
-                }
-            }
+            const success = await linkGoogleAccount();
+            if (!success)
+                setErrorMessage('Google sign-in was cancelled or did not complete. Please try again.');
         } catch (err: any) {
-            setErrorMessage(err?.message ?? 'Could not update your Google account.');
+            setErrorMessage(err?.message ?? 'Could not link your Google account.');
         } finally {
+            // Refetch regardless of outcome — the OAuth round trip can
+            // succeed or fail server-side independently of what the client
+            // sees, so re-deriving from the server is the only way the
+            // "Linked"/"Link" label and the profile name/email go stale.
+            await refreshAuthState();
             setBusy('none');
         }
     }
@@ -83,7 +103,7 @@ export default function SettingsScreen() {
         setBusy('delete');
         try {
             await deleteAccount();
-            router.replace('/');
+            router.replace('/(auth)');
         } catch (err: any) {
             setErrorMessage(err?.message ?? 'Could not delete your account.');
             setBusy('none');
@@ -118,7 +138,7 @@ export default function SettingsScreen() {
                     />
                     <View style={styles.profileText}>
                         <Text style={styles.profileName} numberOfLines={1}>
-                            {fullName || user?.email}
+                            {fullName || user?.email || 'Guest'}
                         </Text>
                         {fullName && user?.email && (
                             <Text style={styles.profileEmail} numberOfLines={1}>
@@ -134,14 +154,11 @@ export default function SettingsScreen() {
                     <Text style={styles.sectionLabel}>ACCOUNT</Text>
 
                     <View style={styles.sectionCard}>
-                        {hasEmailIdentity && (
-                            <PressableScale style={styles.row} onPress={() => router.push('/change-password')}>
-                                <Text style={styles.rowLabel}>Change password</Text>
-                                <Ionicons name="chevron-forward" size={18} color={COLORS.neutral[500]} />
-                            </PressableScale>
-                        )}
-
-                        <PressableScale style={styles.row} onPress={handleGoogleRow} disabled={busy !== 'none'}>
+                        <PressableScale
+                            style={styles.row}
+                            onPress={handleGoogleRow}
+                            disabled={busy !== 'none' || !!googleIdentity}
+                        >
                             <Text style={styles.rowLabel}>Google account</Text>
                             {busy === 'google' ? (
                                 <ActivityIndicator color={COLORS.neutral[500]} />

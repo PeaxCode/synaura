@@ -41,6 +41,15 @@ const createStyles = (COLORS: any) =>
             gap: 2,
             minWidth: 0,
         },
+        profileLineRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            minWidth: 0,
+        },
+        profileLineText: {
+            flexShrink: 1,
+        },
         profileName: {
             fontSize: 14,
             fontFamily: FONTS.medium,

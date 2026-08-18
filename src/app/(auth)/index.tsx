@@ -11,9 +11,9 @@ import AmbientBackground from '@/src/components/AmbientBackground';
 import LogoMark from '@/src/components/LogoMark';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
-import { signInWithApple, signInWithGoogle } from '@/src/data/auth';
+import { continueAsGuest, signInWithApple, signInWithGoogle } from '@/src/data/auth';
 
-type Submitting = 'none' | 'google' | 'apple';
+type Submitting = 'none' | 'guest' | 'google' | 'apple';
 
 export default function WelcomeScreen() {
     const styles = createStyles(COLORS);
@@ -22,6 +22,21 @@ export default function WelcomeScreen() {
     const [submitting, setSubmitting] = useState<Submitting>('none');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const busy = submitting !== 'none';
+
+    async function handleGuest() {
+        if (busy)
+            return;
+        setErrorMessage(null);
+        setSubmitting('guest');
+        try {
+            await continueAsGuest();
+            router.replace('/(tabs)');
+        } catch (err: any) {
+            setErrorMessage(err?.message ?? 'Could not continue as guest.');
+        } finally {
+            setSubmitting('none');
+        }
+    }
 
     async function handleGoogle() {
         if (busy)
@@ -75,10 +90,14 @@ export default function WelcomeScreen() {
                 <View style={styles.bottom}>
                     <PressableScale
                         style={[auth.primaryButton, busy && { opacity: 0.6 }]}
-                        onPress={() => router.push('/auth?mode=register')}
+                        onPress={handleGuest}
                         disabled={busy}
                     >
-                        <Text style={auth.primaryButtonText}>Continue with email</Text>
+                        {submitting === 'guest' ? (
+                            <ActivityIndicator color={COLORS.accent} />
+                        ) : (
+                            <Text style={auth.primaryButtonText}>Continue as Guest</Text>
+                        )}
                     </PressableScale>
 
                     <View style={auth.divider}>

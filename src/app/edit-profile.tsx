@@ -74,7 +74,7 @@ export default function EditProfileScreen() {
                             style={auth.input}
                             value={fullName}
                             onChangeText={setFullName}
-                            autoCapitalize="words"
+                            autoCapitalize="none"
                             textContentType="name"
                             autoComplete="name"
                             returnKeyType="done"

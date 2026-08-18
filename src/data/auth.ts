@@ -1,4 +1,3 @@
-import { UserIdentity } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -7,26 +6,12 @@ import { supabase } from '@/src/data/client';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export async function signInWithEmail(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error)
-        throw error;
-}
-
-export async function signUpWithEmail(email: string, password: string, fullName?: string) {
-    const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: fullName ? { data: { full_name: fullName } } : undefined,
-    });
-    if (error)
-        throw error;
-}
-
-export async function sendPasswordReset(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: Linking.createURL('auth/callback'),
-    });
+// The account model is guest-first: every user starts anonymous
+// (`auth.users.is_anonymous = true`) and can later attach Apple/Google to
+// keep their data. Requires "Allow anonymous sign-ins" enabled in the
+// Supabase Dashboard (Authentication → Settings) — not just config.toml.
+export async function continueAsGuest() {
+    const { error } = await supabase.auth.signInAnonymously();
     if (error)
         throw error;
 }
@@ -42,10 +27,10 @@ export async function signInWithGoogle(): Promise<boolean> {
         throw error;
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-    if (result.type !== 'success' || !result.url)
-        return false;
+    if (result.type === 'success' && result.url)
+        return await applySessionFromUrl(result.url);
 
-    return applySessionFromUrl(result.url);
+    return false;
 }
 
 export async function signInWithApple() {
@@ -77,18 +62,14 @@ export async function signInWithApple() {
         await syncFullNameIfMissing([givenName, familyName].filter(Boolean).join(' '));
 }
 
-export async function changePassword(newPassword: string) {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error)
-        throw error;
-}
-
 export async function updateFullName(fullName: string) {
     const { error } = await supabase.auth.updateUser({ data: { full_name: fullName } });
     if (error)
         throw error;
 }
 
+// Attaches Google to the signed-in (guest) user so they keep their data —
+// Supabase promotes the account off `is_anonymous` once the identity links.
 export async function linkGoogleAccount(): Promise<boolean> {
     const redirectTo = Linking.createURL('auth/callback');
 
@@ -100,16 +81,10 @@ export async function linkGoogleAccount(): Promise<boolean> {
         throw error;
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-    if (result.type !== 'success' || !result.url)
-        return false;
+    if (result.type === 'success' && result.url)
+        return await applySessionFromUrl(result.url);
 
-    return applySessionFromUrl(result.url);
-}
-
-export async function unlinkGoogleAccount(identity: UserIdentity) {
-    const { error } = await supabase.auth.unlinkIdentity(identity);
-    if (error)
-        throw error;
+    return false;
 }
 
 // Deleting the row itself needs the service-role key, which the client must
@@ -123,9 +98,13 @@ export async function deleteAccount() {
     await supabase.auth.signOut();
 }
 
-async function applySessionFromUrl(url: string): Promise<boolean> {
+function parseCallbackParams(url: string): URLSearchParams {
     const fragment = url.split('#')[1] ?? url.split('?')[1] ?? '';
-    const params = new URLSearchParams(fragment);
+    return new URLSearchParams(fragment);
+}
+
+async function applySessionFromUrl(url: string): Promise<boolean> {
+    const params = parseCallbackParams(url);
     const access_token = params.get('access_token');
     const refresh_token = params.get('refresh_token');
 
