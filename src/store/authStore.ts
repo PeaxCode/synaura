@@ -9,6 +9,7 @@ interface AuthState {
     setIsLoading: (isLoading: boolean) => void;
 }
 
+// Global state for Supabase authentication, managing the current session and user lifecycle.
 export const useAuthStore = create<AuthState>((set) => ({
     session: null,
     user: null,

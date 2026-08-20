@@ -107,6 +107,7 @@ export async function readOnboardingAnswers(): Promise<OnboardingAnswers | null>
     }
 }
 
+// Syncs locally stored onboarding answers to the user's Supabase profile upon successful registration or login.
 export async function syncOnboardingAnswersToProfile() {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user.id;

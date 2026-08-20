@@ -23,6 +23,7 @@ function playbackRateForY(y: number) {
     return RATE_MAX - (RATE_MAX - RATE_MIN) * t;
 }
 
+// Manages the continuous ambient drone during onboarding, mapping 2D pad coordinates to low-pass filter and playback rate parameters.
 export function useMoodPreviewSound(active: boolean) {
     const contextRef = useRef<AudioContext | null>(null);
     const bufferRef = useRef<AudioBuffer | null>(null);
