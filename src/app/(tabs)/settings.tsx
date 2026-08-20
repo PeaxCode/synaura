@@ -32,6 +32,7 @@ export default function SettingsScreen() {
 
     const fullName = user?.user_metadata?.full_name as string | undefined;
     const googleIdentity = identities.find((i) => i.provider === 'google');
+    const appleIdentity = identities.find((i) => i.provider === 'apple');
     const isGuest = !!user?.is_anonymous;
 
     useFocusEffect(
@@ -87,10 +88,7 @@ export default function SettingsScreen() {
         } catch (err: any) {
             setErrorMessage(err?.message ?? 'Could not link your Google account.');
         } finally {
-            // Refetch regardless of outcome — the OAuth round trip can
-            // succeed or fail server-side independently of what the client
-            // sees, so re-deriving from the server is the only way the
-            // "Linked"/"Link" label and the profile name/email go stale.
+            // Refetches auth state from the server regardless of outcome to ensure the UI stays synchronized.
             await refreshAuthState();
             setBusy('none');
         }
@@ -154,20 +152,22 @@ export default function SettingsScreen() {
                     <Text style={styles.sectionLabel}>ACCOUNT</Text>
 
                     <View style={styles.sectionCard}>
-                        <PressableScale
-                            style={styles.row}
-                            onPress={handleGoogleRow}
-                            disabled={busy !== 'none' || !!googleIdentity}
-                        >
-                            <Text style={styles.rowLabel}>Google account</Text>
-                            {busy === 'google' ? (
-                                <ActivityIndicator color={COLORS.neutral[500]} />
-                            ) : (
-                                <Text style={[styles.rowValue, !googleIdentity && styles.rowValueAccent]}>
-                                    {googleIdentity ? 'Linked' : 'Link'}
-                                </Text>
-                            )}
-                        </PressableScale>
+                        {!appleIdentity && (
+                            <PressableScale
+                                style={styles.row}
+                                onPress={handleGoogleRow}
+                                disabled={busy !== 'none' || !!googleIdentity}
+                            >
+                                <Text style={styles.rowLabel}>Google account</Text>
+                                {busy === 'google' ? (
+                                    <ActivityIndicator color={COLORS.neutral[500]} />
+                                ) : (
+                                    <Text style={[styles.rowValue, !googleIdentity && styles.rowValueAccent]}>
+                                        {googleIdentity ? 'Linked' : 'Link'}
+                                    </Text>
+                                )}
+                            </PressableScale>
+                        )}
 
                         <PressableScale style={[styles.row, styles.rowLast]} onPress={handleSignOut}>
                             <Text style={styles.rowLabel}>Sign out</Text>

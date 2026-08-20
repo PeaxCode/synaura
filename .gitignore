@@ -45,3 +45,6 @@ yarn-error.*
 CLAUDE.md
 .vscode
 .history
+
+# generated test audio (tools/audio/generate_stems.py)
+tools/audio/out/

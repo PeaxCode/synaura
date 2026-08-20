@@ -258,8 +258,7 @@ const createStyles = (COLORS: any) =>
             alignItems: 'center',
             gap: 18,
         },
-        // Fixed width, no chrome — keeps the three lines of text left-aligned
-        // with each other even though the glyphs differ in width.
+        // Fixed width icon container ensures multi-line text stays left-aligned across rows.
         primerIcon: {
             width: 30,
             textAlign: 'center',
@@ -373,9 +372,7 @@ const createStyles = (COLORS: any) =>
             borderColor: COLORS.accent,
             alignItems: 'center',
             justifyContent: 'center',
-            // iOS-only glow on purpose. Android's `elevation` would draw its
-            // shadow straight through the transparent fill as a dark slab, so
-            // this button stays a clean outline there.
+            // iOS-only glow since Android's elevation draws a dark shadow through transparent fills.
             shadowColor: COLORS.accent,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.35,

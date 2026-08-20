@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FONTS } from '@/src/constants/theme';
+import { FONTS, RADIUS } from '@/src/constants/theme';
 
 const createStyles = (COLORS: any) =>
     StyleSheet.create({
@@ -43,6 +43,50 @@ const createStyles = (COLORS: any) =>
             fontSize: 13,
             color: COLORS.text,
             marginLeft: 6,
+        },
+        nowPlayingBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            alignSelf: 'stretch',
+            gap: 12,
+            marginHorizontal: 20,
+            marginBottom: 10,
+            padding: 12,
+            borderRadius: RADIUS.lg,
+            borderWidth: 1,
+            borderColor: COLORS.divider,
+            backgroundColor: COLORS.surface,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.28,
+            shadowRadius: 20,
+            elevation: 10,
+        },
+        nowPlayingIcon: {
+            width: 26,
+            height: 26,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        nowPlayingText: {
+            flex: 1,
+        },
+        nowPlayingTitle: {
+            fontSize: 14,
+            fontFamily: FONTS.medium,
+            color: COLORS.text,
+        },
+        nowPlayingMeta: {
+            marginTop: 2,
+            fontSize: 12,
+            fontFamily: FONTS.regular,
+            color: COLORS.neutral[500],
+        },
+        nowPlayingStopButton: {
+            width: 34,
+            height: 34,
+            alignItems: 'center',
+            justifyContent: 'center',
         },
     });
 

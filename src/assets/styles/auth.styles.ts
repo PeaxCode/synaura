@@ -106,9 +106,7 @@ const createStyles = (COLORS: any) =>
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-            // iOS-only glow on purpose. Android's `elevation` would draw its
-            // shadow straight through the transparent fill as a dark slab, so
-            // this button stays a clean outline there.
+            // iOS-only glow since Android's elevation draws a dark shadow through transparent fills.
             shadowColor: COLORS.accent,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.35,

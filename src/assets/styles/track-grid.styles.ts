@@ -3,32 +3,13 @@ import { FONTS, RADIUS } from '@/src/constants/theme';
 
 const createStyles = (COLORS: any) =>
     StyleSheet.create({
-        safeArea: {
-            flex: 1,
-            backgroundColor: COLORS.bg,
-        },
-        content: {
-            flexGrow: 1,
-            padding: 28,
-            paddingTop: 20,
-            paddingBottom: 120,
-        },
-        title: {
-            fontSize: 26,
-            fontFamily: FONTS.semibold,
-            letterSpacing: -0.4,
-            color: COLORS.text,
-        },
-        stateIndicator: {
-            marginTop: 32,
-        },
-        // Compact tabs to fit three items across the screen width.
-        tabToggle: {
+        // Matches the size of Library's tab toggle so both read as category pickers.
+        modeToggle: {
             flexDirection: 'row',
             gap: 8,
             marginTop: 24,
         },
-        tabButton: {
+        modeButton: {
             flex: 1,
             flexDirection: 'row',
             alignItems: 'center',
@@ -40,19 +21,18 @@ const createStyles = (COLORS: any) =>
             borderColor: COLORS.divider,
             backgroundColor: COLORS.surface,
         },
-        tabButtonActive: {
+        modeButtonActive: {
             borderColor: COLORS.accent,
             backgroundColor: 'rgba(145,132,217,0.14)',
         },
-        tabButtonLabel: {
+        modeButtonLabel: {
             fontSize: 12,
             fontFamily: FONTS.medium,
             color: COLORS.neutral[400],
         },
-        tabButtonLabelActive: {
+        modeButtonLabelActive: {
             color: COLORS.accent,
         },
-        // Square-ish tiles that share the TrackGrid visual language.
         grid: {
             flexDirection: 'row',
             flexWrap: 'wrap',
@@ -60,45 +40,36 @@ const createStyles = (COLORS: any) =>
             rowGap: 12,
             marginTop: 20,
         },
-        card: {
+        trackCard: {
             width: '48%',
             borderRadius: RADIUS.md,
             borderWidth: 1,
             borderColor: COLORS.divider,
-            backgroundColor: COLORS.surface,
             overflow: 'hidden',
         },
-        // Square placeholder matching TrackGrid card proportions.
-        cardArt: {
+        trackCardActive: {
+            borderColor: COLORS.accent,
+        },
+        // Square placeholder representing cover art to establish a music app layout.
+        trackCardArt: {
             width: '100%',
             aspectRatio: 1,
             backgroundColor: 'rgba(145,132,217,0.08)',
         },
-        cardBody: {
+        trackCardArtActive: {
+            backgroundColor: 'rgba(145,132,217,0.2)',
+        },
+        trackCardBody: {
             padding: 12,
             gap: 4,
         },
-        cardTitle: {
+        trackCardTitle: {
             fontSize: 14,
             fontFamily: FONTS.medium,
             color: COLORS.text,
         },
-        cardSubtitle: {
+        trackCardMeta: {
             fontSize: 12,
-            fontFamily: FONTS.regular,
-            color: COLORS.neutral[500],
-        },
-        emptyCard: {
-            width: '100%',
-            paddingVertical: 24,
-            borderRadius: RADIUS.md,
-            borderWidth: 1.5,
-            borderStyle: 'dashed',
-            borderColor: COLORS.divider,
-            alignItems: 'center',
-        },
-        emptyText: {
-            fontSize: 13.5,
             fontFamily: FONTS.regular,
             color: COLORS.neutral[500],
         },
