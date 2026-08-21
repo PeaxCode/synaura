@@ -1,12 +1,15 @@
 export const COLORS = {
-    // 20.08 → 21.08: shifted from a navy-purple base toward a Spotify/Endel-style
-    // near-black, keeping the purple accent as the one saturated color against it.
-    bg: '#0d0d12',
-    surface: '#1a1a21',
+    // Ultra-deep black base — Endel/Brain.fm-level darkness.
+    bg: '#08080C',
+    surface: '#111118',
+    surfaceElevated: '#1a1a24',
     text: '#e9e9ed',
-    accent: '#9184d9',
+    accent: '#8B7FD4',
+    accentBright: '#A594FF',
     accent2: '#a7a1db',
-    divider: 'rgba(233,233,237,0.12)',
+    accentGlow: 'rgba(139,127,212,0.35)',
+    accentTint: 'rgba(139,127,212,0.08)',
+    divider: 'rgba(233,233,237,0.08)',
 
     neutral: {
         100: '#f3f5fe',

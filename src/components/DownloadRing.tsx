@@ -23,7 +23,7 @@ export default function DownloadRing({ size, progress, isDownloading, isDownload
     return (
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
             <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
-                <Circle cx={size / 2} cy={size / 2} r={radius} stroke={trackColor} strokeWidth={STROKE_WIDTH} fill="none" />
+                <Circle cx={size / 2} cy={size / 2} r={radius} stroke={isDownloaded ? color : trackColor} strokeWidth={STROKE_WIDTH} fill="none" />
                 {isDownloading && (
                     <Circle
                         cx={size / 2}

@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import createStyles from '@/src/assets/styles/library.styles';
 import AmbientBackground from '@/src/components/AmbientBackground';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
-import { Preset, RecentPlay, fetchFavoriteTrackIds, fetchPresets, fetchRecentPlays } from '@/src/data/library';
-import { isTrackOffline } from '@/src/data/offline';
+import { Preset, RecentPlay, favoriteTrack, fetchFavoriteTrackIds, fetchPresets, fetchRecentPlays, unfavoriteTrack } from '@/src/data/library';
+import { isTrackOffline, removeTrackOffline } from '@/src/data/offline';
 import { Mode, Track } from '@/src/data/tracks';
 import { useAuthStore } from '@/src/store/authStore';
 import { useTracksStore } from '@/src/store/tracksStore';
@@ -49,6 +49,11 @@ export default function LibraryScreen() {
     const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
     const [presets, setPresets] = useState<Preset[]>([]);
     const [recentPlays, setRecentPlays] = useState<RecentPlay[]>([]);
+    // Tracks removed via the Downloads tab this session — isTrackOffline alone
+    // can't reflect a delete until allTracks itself changes, so this filters
+    // them out of the list immediately instead of waiting for a re-fetch.
+    const [removedDownloadIds, setRemovedDownloadIds] = useState<Set<string>>(new Set());
+    const [openMenuTrackId, setOpenMenuTrackId] = useState<string | null>(null);
 
     // Tracks come from the shared cache (warmed at app launch) instead of a
     // per-focus fetch — only favorites/presets/recent are user-specific and
@@ -57,7 +62,7 @@ export default function LibraryScreen() {
     const favoriteTracks = allTracks.filter((track) => favoriteIds.has(track.id));
     // isTrackOffline is a synchronous filesystem check (src/data/offline.ts) —
     // recomputed on every render instead of cached, so it can never go stale.
-    const downloadedTracks = allTracks.filter((track) => isTrackOffline(track));
+    const downloadedTracks = allTracks.filter((track) => isTrackOffline(track) && !removedDownloadIds.has(track.id));
 
     // Switches to the specified tab if linked externally (e.g., from the Home screen's Recent section).
     useEffect(() => {
@@ -107,6 +112,36 @@ export default function LibraryScreen() {
             router.push({ pathname: '/start-session', params: { presetId: play.presetId } });
         } else if (play.trackId) {
             router.push({ pathname: '/start-session', params: { trackId: play.trackId } });
+        }
+    }
+
+    // No confirmation dialog — same immediate-delete behavior as the Player's
+    // download toggle (src/app/player.tsx handleToggleOffline).
+    function handleRemoveDownload(track: Track) {
+        removeTrackOffline(track.id);
+        setRemovedDownloadIds((prev) => new Set(prev).add(track.id));
+        setOpenMenuTrackId(null);
+    }
+
+    async function handleToggleFavorite(track: Track) {
+        if (!userId) return;
+        const isFavorited = favoriteIds.has(track.id);
+        setFavoriteIds((prev) => {
+            const next = new Set(prev);
+            if (isFavorited) next.delete(track.id);
+            else next.add(track.id);
+            return next;
+        });
+        try {
+            if (isFavorited) await unfavoriteTrack(userId, track.id);
+            else await favoriteTrack(userId, track.id);
+        } catch {
+            setFavoriteIds((prev) => {
+                const next = new Set(prev);
+                if (isFavorited) next.add(track.id);
+                else next.delete(track.id);
+                return next;
+            });
         }
     }
 
@@ -189,15 +224,59 @@ export default function LibraryScreen() {
                                     <Text style={styles.emptyText}>No downloads yet</Text>
                                 </View>
                             ) : (
-                                downloadedTracks.map((track) => (
-                                    <PressableScale key={track.id} style={styles.card} onPress={() => handlePlayTrack(track)}>
-                                        <View style={styles.cardArt} />
-                                        <View style={styles.cardBody}>
-                                            <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
-                                            <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
-                                        </View>
-                                    </PressableScale>
-                                ))
+                                <View style={styles.listContainer}>
+                                    {downloadedTracks.map((track, i) => {
+                                        const isFavorited = favoriteIds.has(track.id);
+                                        const isMenuOpen = openMenuTrackId === track.id;
+                                        return (
+                                            <View key={track.id} style={isMenuOpen ? { zIndex: 20 } : undefined}>
+                                                <View style={styles.listRow}>
+                                                    <PressableScale style={styles.listRowBody} onPress={() => handlePlayTrack(track)}>
+                                                        <View style={styles.listRowArt} />
+                                                        <View style={styles.listRowText}>
+                                                            <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
+                                                            <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
+                                                        </View>
+                                                    </PressableScale>
+
+                                                    <View style={styles.listRowActions}>
+                                                        <View style={styles.menuAnchor}>
+                                                            <PressableScale
+                                                                style={styles.listRowIconButton}
+                                                                onPress={() => setOpenMenuTrackId(isMenuOpen ? null : track.id)}
+                                                            >
+                                                                <Ionicons name="ellipsis-horizontal" size={18} color={COLORS.neutral[400]} />
+                                                            </PressableScale>
+
+                                                            {isMenuOpen && (
+                                                                <>
+                                                                    <Pressable style={styles.menuBackdrop} onPress={() => setOpenMenuTrackId(null)} />
+                                                                    <View style={styles.menu}>
+                                                                        <PressableScale
+                                                                            style={styles.menuRow}
+                                                                            onPress={() => { handleToggleFavorite(track); setOpenMenuTrackId(null); }}
+                                                                        >
+                                                                            <Ionicons name={isFavorited ? 'heart' : 'heart-outline'} size={18} color={isFavorited ? COLORS.accent : COLORS.neutral[300]} />
+                                                                            <Text style={[styles.menuRowLabel, isFavorited && styles.menuRowLabelActive]}>
+                                                                                {isFavorited ? 'Favorited' : 'Favorite'}
+                                                                            </Text>
+                                                                        </PressableScale>
+
+                                                                        <PressableScale style={styles.menuRow} onPress={() => handleRemoveDownload(track)}>
+                                                                            <Ionicons name="trash-outline" size={18} color={COLORS.neutral[300]} />
+                                                                            <Text style={styles.menuRowLabel}>Remove Download</Text>
+                                                                        </PressableScale>
+                                                                    </View>
+                                                                </>
+                                                            )}
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                                {i !== downloadedTracks.length - 1 && <View style={styles.listDivider} />}
+                                            </View>
+                                        );
+                                    })}
+                                </View>
                             )
                         )}
 
@@ -207,17 +286,24 @@ export default function LibraryScreen() {
                                     <Text style={styles.emptyText}>No sessions yet</Text>
                                 </View>
                             ) : (
-                                recentPlays.map((play, i) => (
-                                    <PressableScale key={i} style={styles.card} onPress={() => handlePlayRecent(play)}>
-                                        <View style={styles.cardArt} />
-                                        <View style={styles.cardBody}>
-                                            <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
-                                            <Text style={styles.cardSubtitle}>
-                                                {`${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
-                                            </Text>
+                                <View style={styles.listContainer}>
+                                    {recentPlays.map((play, i) => (
+                                        <View key={i}>
+                                            <View style={styles.listRow}>
+                                                <PressableScale style={styles.listRowBody} onPress={() => handlePlayRecent(play)}>
+                                                    <View style={styles.listRowArt} />
+                                                    <View style={styles.listRowText}>
+                                                        <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
+                                                        <Text style={styles.cardSubtitle}>
+                                                            {`${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
+                                                        </Text>
+                                                    </View>
+                                                </PressableScale>
+                                            </View>
+                                            {i !== recentPlays.length - 1 && <View style={styles.listDivider} />}
                                         </View>
-                                    </PressableScale>
-                                ))
+                                    ))}
+                                </View>
                             )
                         )}
                     </View>

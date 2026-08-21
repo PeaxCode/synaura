@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import createStyles from '@/src/assets/styles/player.styles';
 import DownloadRing from '@/src/components/DownloadRing';
 import ModalSheet from '@/src/components/ModalSheet';
+import PerspectiveGrid from '@/src/components/PerspectiveGrid';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
 import { deletePreset, favoriteTrack, fetchFavoriteTrackIds, findPresetByTrack, savePreset, unfavoriteTrack } from '@/src/data/library';
@@ -163,7 +164,10 @@ export default function PlayerScreen() {
                 {/* Displays the session countdown timer as the central artwork. */}
                 <View style={styles.artworkWrap}>
                     <View style={styles.artworkCard}>
-                        <Text style={styles.timerValue}>{timerLabel}</Text>
+                        <PerspectiveGrid size={280} isPlaying={isPlaying} />
+                        <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={styles.timerValue}>{timerLabel}</Text>
+                        </View>
                     </View>
                     <Text style={styles.trackTitle}>{currentTrack.name}</Text>
                     <Text style={styles.trackMeta}>{currentTrack.mode === 'relax' ? 'Relax' : 'Focus'}</Text>

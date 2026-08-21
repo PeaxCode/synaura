@@ -3,10 +3,6 @@ import { StyleSheet } from 'react-native';
 
 const createStyles = (COLORS: any) =>
     StyleSheet.create({
-        // No more flex-spacer between the artwork block and the transport row —
-        // centering the two as a group keeps them close together regardless of
-        // how tall the artwork block is (e.g. with/without the progress bar),
-        // instead of transport always being pinned to the very bottom.
         content: {
             flex: 1,
             padding: 28,
@@ -22,15 +18,14 @@ const createStyles = (COLORS: any) =>
             maxWidth: 320,
             aspectRatio: 1,
             borderRadius: RADIUS.lg,
-            borderWidth: 1,
-            borderColor: COLORS.accent,
-            backgroundColor: 'rgba(145,132,217,0.08)',
             alignItems: 'center',
             justifyContent: 'center',
+            overflow: 'hidden',
+            // Enhanced purple glow
             shadowColor: COLORS.accent,
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.35,
-            shadowRadius: 30,
+            shadowOpacity: 0.45,
+            shadowRadius: 40,
         },
         timerValue: {
             fontSize: 56,
@@ -67,9 +62,6 @@ const createStyles = (COLORS: any) =>
             borderRadius: 2,
             backgroundColor: COLORS.accent,
         },
-        // `position: relative` so the ⋯ menu button/dropdown (menuAnchor) can
-        // pin itself to this row's right edge without disturbing the centered
-        // skip/play/skip group.
         transportRow: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -78,12 +70,6 @@ const createStyles = (COLORS: any) =>
             marginTop: 28,
             position: 'relative',
         },
-        // Flat, no box — icon + color/label carries state, no background/border.
-        // The label is positioned absolutely (not stacked in normal flow) so it
-        // doesn't push the icon off-center — the icon alone determines this
-        // button's center, which is what lines it up with playButton's icon on
-        // the same row (both boxes share transportRow's `alignItems: center`,
-        // but only if each box's *content* is actually centered within it).
         sideButton: {
             width: 48,
             height: 48,
@@ -108,10 +94,11 @@ const createStyles = (COLORS: any) =>
             backgroundColor: COLORS.accent,
             alignItems: 'center',
             justifyContent: 'center',
+            // Stronger glow
             shadowColor: COLORS.accent,
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.45,
-            shadowRadius: 16,
+            shadowOpacity: 0.6,
+            shadowRadius: 24,
         },
         menuAnchor: {
             position: 'absolute',
@@ -126,8 +113,6 @@ const createStyles = (COLORS: any) =>
             alignItems: 'center',
             justifyContent: 'center',
         },
-        // Oversized, invisible — the anchor itself is only 40×40, so a same-size
-        // backdrop wouldn't catch taps anywhere else on screen to dismiss.
         menuBackdrop: {
             position: 'absolute',
             top: -1000,
@@ -143,13 +128,13 @@ const createStyles = (COLORS: any) =>
             minWidth: 190,
             borderRadius: RADIUS.md,
             borderWidth: 1,
-            borderColor: COLORS.divider,
-            backgroundColor: COLORS.surface,
+            borderColor: 'rgba(139,127,212,0.15)',
+            backgroundColor: COLORS.surfaceElevated,
             paddingVertical: 6,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
+            shadowOpacity: 0.35,
+            shadowRadius: 16,
             elevation: 8,
         },
         menuRow: {

@@ -26,9 +26,9 @@ const createStyles = (COLORS: any) =>
             gap: 12,
             padding: 14,
             borderRadius: 14,
-            backgroundColor: COLORS.surface,
+            backgroundColor: COLORS.surfaceElevated,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.12)',
         },
         avatar: {
             width: 42,
@@ -73,9 +73,9 @@ const createStyles = (COLORS: any) =>
         },
         sectionCard: {
             borderRadius: 14,
-            backgroundColor: COLORS.surface,
+            backgroundColor: COLORS.surfaceElevated,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.1)',
             overflow: 'hidden',
         },
         row: {
@@ -85,7 +85,7 @@ const createStyles = (COLORS: any) =>
             minHeight: 52,
             paddingHorizontal: 14,
             borderBottomWidth: 1,
-            borderBottomColor: 'rgba(233,233,237,0.07)',
+            borderBottomColor: 'rgba(139,127,212,0.08)',
         },
         rowLast: {
             borderBottomWidth: 0,

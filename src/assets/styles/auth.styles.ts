@@ -64,9 +64,9 @@ const createStyles = (COLORS: any) =>
             fontSize: 15,
             fontFamily: FONTS.regular,
             color: COLORS.text,
-            backgroundColor: COLORS.surface,
+            backgroundColor: COLORS.surfaceElevated,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.1)',
             borderRadius: 8,
             paddingHorizontal: 14,
         },
@@ -152,9 +152,9 @@ const createStyles = (COLORS: any) =>
             backgroundColor: COLORS.neutral[100],
         },
         appleButton: {
-            backgroundColor: 'rgba(233,233,237,0.08)',
+            backgroundColor: 'rgba(233,233,237,0.06)',
             borderWidth: 1.5,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.15)',
         },
         socialButtonTextGoogle: {
             fontSize: 14,

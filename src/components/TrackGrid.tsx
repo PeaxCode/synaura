@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import createStyles from '@/src/assets/styles/track-grid.styles';
+import MiniEqualizer from '@/src/components/MiniEqualizer';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
 import { CATEGORIES, Category, Mode, MODES, Track, tracksByMode } from '@/src/data/tracks';
@@ -16,10 +17,11 @@ interface Props {
 }
 
 // Renders a 2-column grid of tracks filtered by mode, used in Explore and session builder screens.
-export default function TrackGrid({ tracks, activeSlug, loadingSlug, onSelect, cardBackground = COLORS.surface }: Props) {
+export default function TrackGrid({ tracks, activeSlug, loadingSlug, onSelect, cardBackground = COLORS.surfaceElevated }: Props) {
     const styles = createStyles(COLORS);
     const [mode, setMode] = useState<Mode>('focus');
     const modeTracks = tracksByMode(tracks, mode);
+    // Removed layout measurement since we don't render art anymore
 
     return (
         <View>
@@ -51,12 +53,17 @@ export default function TrackGrid({ tracks, activeSlug, loadingSlug, onSelect, c
                             style={[styles.trackCard, { backgroundColor: cardBackground }, isActive && styles.trackCardActive]}
                             onPress={() => onSelect(track)}
                         >
-                            <View style={[styles.trackCardArt, isActive && styles.trackCardArtActive]} />
+                            <View style={[styles.trackCardArt, isActive && styles.trackCardArtActive]}>
+                                {/* Future: users can upload their own images here */}
+                            </View>
                             <View style={styles.trackCardBody}>
                                 <Text style={styles.trackCardTitle} numberOfLines={1}>{track.name}</Text>
-                                <Text style={styles.trackCardMeta}>
-                                    {isBuffering ? 'Loading…' : isActive ? 'Playing' : `${CATEGORY_LABELS[track.category]} · ${Math.round(track.durationSeconds)}s`}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    {isActive && !isBuffering && <MiniEqualizer />}
+                                    <Text style={styles.trackCardMeta}>
+                                        {isBuffering ? 'Loading…' : isActive ? 'Playing' : `${CATEGORY_LABELS[track.category]} · ${Math.round(track.durationSeconds)}s`}
+                                    </Text>
+                                </View>
                             </View>
                         </PressableScale>
                     );

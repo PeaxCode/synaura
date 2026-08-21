@@ -53,8 +53,8 @@ const createStyles = (COLORS: any) =>
             padding: 14,
             borderRadius: RADIUS.md,
             borderWidth: 1,
-            borderColor: COLORS.divider,
-            backgroundColor: COLORS.surface,
+            borderColor: 'rgba(139,127,212,0.12)',
+            backgroundColor: COLORS.surfaceElevated,
         },
         selectedTrackIcon: {
             width: 22,
@@ -89,12 +89,12 @@ const createStyles = (COLORS: any) =>
             gap: 3,
             borderRadius: RADIUS.md,
             borderWidth: 1,
-            borderColor: COLORS.divider,
-            backgroundColor: COLORS.surface,
+            borderColor: 'rgba(139,127,212,0.1)',
+            backgroundColor: COLORS.surfaceElevated,
         },
         durationTileActive: {
-            borderColor: COLORS.accent,
-            backgroundColor: 'rgba(145,132,217,0.14)',
+            borderColor: 'rgba(139,127,212,0.4)',
+            backgroundColor: COLORS.accentTint,
         },
         durationTileValue: {
             fontSize: 28,
@@ -130,9 +130,9 @@ const createStyles = (COLORS: any) =>
             justifyContent: 'center',
         },
         startButtonDisabled: {
-            backgroundColor: COLORS.surface,
+            backgroundColor: COLORS.surfaceElevated,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.1)',
         },
         startButtonText: {
             fontSize: 15,
@@ -151,7 +151,7 @@ const createStyles = (COLORS: any) =>
             paddingVertical: 15,
             borderRadius: RADIUS.md,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.15)',
         },
         secondaryButtonText: {
             fontSize: 14,

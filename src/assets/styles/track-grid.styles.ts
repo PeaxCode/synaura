@@ -3,7 +3,6 @@ import { FONTS, RADIUS } from '@/src/constants/theme';
 
 const createStyles = (COLORS: any) =>
     StyleSheet.create({
-        // Matches the size of Library's tab toggle so both read as category pickers.
         modeToggle: {
             flexDirection: 'row',
             gap: 8,
@@ -22,8 +21,8 @@ const createStyles = (COLORS: any) =>
             backgroundColor: COLORS.surface,
         },
         modeButtonActive: {
-            borderColor: COLORS.accent,
-            backgroundColor: 'rgba(145,132,217,0.14)',
+            borderColor: 'rgba(139,127,212,0.4)',
+            backgroundColor: COLORS.accentTint,
         },
         modeButtonLabel: {
             fontSize: 11,
@@ -44,20 +43,26 @@ const createStyles = (COLORS: any) =>
             width: '48%',
             borderRadius: RADIUS.md,
             borderWidth: 1,
-            borderColor: COLORS.divider,
+            borderColor: 'rgba(139,127,212,0.1)',
             overflow: 'hidden',
+            // Subtle card glow
+            shadowColor: COLORS.accent,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
         },
         trackCardActive: {
-            borderColor: COLORS.accent,
+            borderColor: 'rgba(139,127,212,0.4)',
+            shadowOpacity: 0.2,
         },
-        // Square placeholder representing cover art to establish a music app layout.
         trackCardArt: {
             width: '100%',
             aspectRatio: 1,
-            backgroundColor: 'rgba(145,132,217,0.08)',
+            backgroundColor: 'rgba(139,127,212,0.04)',
+            overflow: 'hidden',
         },
         trackCardArtActive: {
-            backgroundColor: 'rgba(145,132,217,0.2)',
+            backgroundColor: 'rgba(139,127,212,0.1)',
         },
         trackCardBody: {
             padding: 12,

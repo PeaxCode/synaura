@@ -10,6 +10,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import { COLORS } from '@/src/constants/theme';
+import WavyBackground from './WavyBackground';
 
 type LineConfig = {
     key: string;
@@ -22,10 +23,10 @@ type LineConfig = {
 };
 
 const LINES: LineConfig[] = [
-    { key: 'v1', axis: 'vertical', offsetPct: 0.14, lengthPct: 0.34, duration: 12000, delay: 0, color: 'rgba(145,132,217,0.9)' },
-    { key: 'v2', axis: 'vertical', offsetPct: 0.47, lengthPct: 0.24, duration: 16000, delay: 4000, color: 'rgba(181,171,252,0.9)' },
+    { key: 'v1', axis: 'vertical', offsetPct: 0.14, lengthPct: 0.34, duration: 12000, delay: 0, color: 'rgba(139,127,212,0.9)' },
+    { key: 'v2', axis: 'vertical', offsetPct: 0.47, lengthPct: 0.24, duration: 16000, delay: 4000, color: 'rgba(165,148,255,0.9)' },
     { key: 'v3', axis: 'vertical', offsetPct: 0.83, lengthPct: 0.30, duration: 14000, delay: 7000, color: 'rgba(121,108,191,0.9)' },
-    { key: 'h1', axis: 'horizontal', offsetPct: 0.34, lengthPct: 0.28, duration: 19000, delay: 2000, color: 'rgba(145,132,217,0.9)' },
+    { key: 'h1', axis: 'horizontal', offsetPct: 0.34, lengthPct: 0.28, duration: 19000, delay: 2000, color: 'rgba(139,127,212,0.9)' },
     { key: 'h2', axis: 'horizontal', offsetPct: 0.71, lengthPct: 0.22, duration: 23000, delay: 9000, color: 'rgba(93,82,148,0.9)' },
 ];
 
@@ -124,7 +125,7 @@ function FlowLines() {
     );
 
     return (
-        <View style={[StyleSheet.absoluteFill, { opacity: 0.5 }]} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { opacity: 0.25 }]} pointerEvents="none">
             {configs.map((line) => (
                 <FlowLine key={line.key} config={line} screenWidth={width} screenHeight={height} />
             ))}
@@ -132,14 +133,27 @@ function FlowLines() {
     );
 }
 
-export default function AmbientBackground({ showLines = true }: { showLines?: boolean }) {
+export default function AmbientBackground({ showLines = true, showGeometry = true }: { showLines?: boolean; showGeometry?: boolean }) {
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {/* Base gradient — ultra-dark fade */}
             <LinearGradient
-                colors={['rgba(13,13,18,0.2)', COLORS.bg]}
+                colors={['rgba(8,8,12,0.15)', COLORS.bg]}
                 style={StyleSheet.absoluteFill}
             />
 
+            {/* Subtle top-center radial glow */}
+            <LinearGradient
+                colors={['rgba(139,127,212,0.06)', 'transparent']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 0.5 }}
+                style={StyleSheet.absoluteFill}
+            />
+
+            {/* Wavy background layer instead of geometric */}
+            {showGeometry && <WavyBackground />}
+
+            {/* Flow lines on top */}
             {showLines && <FlowLines />}
         </View>
     );
