@@ -1,8 +1,9 @@
 import { StemVoice, decodeTrackBuffers, fadeOutAndClose, startVoices } from '@/src/data/audioEngine';
 import { logPresetPlay } from '@/src/data/library';
+import { resolvePlaybackStemUrls } from '@/src/data/offline';
 import { AxisValues, STEM_LAYERS, StemLayer, Track, mixForAxis } from '@/src/data/tracks';
 import { useAuthStore } from '@/src/store/authStore';
-import { AudioBuffer, AudioContext } from 'react-native-audio-api';
+import { AudioBuffer, AudioContext, AudioManager, PlaybackNotificationManager } from 'react-native-audio-api';
 import { create } from 'zustand';
 
 const GAIN_SMOOTH_SECONDS = 0.15;
@@ -32,10 +33,33 @@ interface PlaybackState {
     pause: () => void;
     resume: () => Promise<void>;
     stop: () => void;
+    adjustSessionTime: (deltaSeconds: number) => void;
 }
 
 // Global state for managing background audio playback, stem mixing, and session countdown timers.
-export const usePlaybackStore = create<PlaybackState>((set, get) => ({
+export const usePlaybackStore = create<PlaybackState>((set, get) => {
+    // Pushes current track/state to the lock screen / notification-center
+    // "Now Playing" widget. duration/elapsedTime are only included for a
+    // fixed-length session — iOS interpolates the scrubber from these plus
+    // `speed` on its own, no need to call this every second.
+    function updateNowPlaying() {
+        const { currentTrack, isPlaying, sessionMinutes, sessionEndAt, pausedRemainingMs } = get();
+        if (!currentTrack) return;
+
+        const totalMs = sessionMinutes !== null ? sessionMinutes * 60 * 1000 : null;
+        const remainingMs = sessionEndAt !== null ? Math.max(0, sessionEndAt - Date.now()) : pausedRemainingMs;
+
+        PlaybackNotificationManager.show({
+            title: currentTrack.name,
+            artist: 'Synaura',
+            state: isPlaying ? 'playing' : 'paused',
+            ...(totalMs !== null && remainingMs !== null
+                ? { duration: totalMs / 1000, elapsedTime: Math.max(0, (totalMs - remainingMs) / 1000), speed: isPlaying ? 1 : 0 }
+                : {}),
+        }).catch(() => { });
+    }
+
+    return {
     context: null,
     voices: {},
     buffers: {},
@@ -67,28 +91,41 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         });
 
         const context = new AudioContext();
-        await context.resume();
+        AudioManager.setAudioSessionActivity(true).catch(() => { });
 
-        const startAxis = axis ?? track.defaultAxisValues;
-        const buffers = await decodeTrackBuffers(context, track);
+        try {
+            await context.resume();
 
-        if (get().loadToken !== token) {
+            const startAxis = axis ?? track.defaultAxisValues;
+            const playableTrack = { ...track, stemUrls: resolvePlaybackStemUrls(track) };
+            const buffers = await decodeTrackBuffers(context, playableTrack);
+
+            if (get().loadToken !== token) {
+                context.close().catch(() => { });
+                return;
+            }
+
+            const { voices, startAt } = startVoices(context, track, startAxis, buffers, 0);
+
+            set({
+                context,
+                voices,
+                buffers,
+                axisValues: startAxis,
+                isLoading: false,
+                isPlaying: true,
+                playbackStartedAt: startAt,
+                pausedOffsetSeconds: 0,
+            });
+            updateNowPlaying();
+        } catch {
+            // Decode/fetch failed — drop back to no session instead of leaving
+            // Player stuck on an infinite spinner with a dead AudioContext.
             context.close().catch(() => { });
-            return;
+            if (get().loadToken === token) {
+                set({ isLoading: false, currentTrack: null, currentPresetId: null });
+            }
         }
-
-        const { voices, startAt } = startVoices(context, track, startAxis, buffers, 0);
-
-        set({
-            context,
-            voices,
-            buffers,
-            axisValues: startAxis,
-            isLoading: false,
-            isPlaying: true,
-            playbackStartedAt: startAt,
-            pausedOffsetSeconds: 0,
-        });
     },
 
     updateAxis(x, y) {
@@ -111,6 +148,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
 
         if (minutes === null) {
             set({ sessionMinutes: null, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: null });
+            updateNowPlaying();
             return;
         }
 
@@ -121,6 +159,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         } else {
             set({ sessionMinutes: minutes, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: ms });
         }
+        updateNowPlaying();
     },
 
     pause() {
@@ -149,6 +188,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
             sessionPlaySeconds: sessionPlaySeconds + segmentSeconds,
             playSegmentStartedAt: null,
         });
+        updateNowPlaying();
     },
 
     async resume() {
@@ -159,6 +199,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         set({ loadToken: token, isLoading: true });
 
         const context = new AudioContext();
+        AudioManager.setAudioSessionActivity(true).catch(() => { });
         await context.resume();
 
         if (get().loadToken !== token) {
@@ -182,6 +223,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
             pausedRemainingMs: null,
             playSegmentStartedAt: Date.now(),
         });
+        updateNowPlaying();
     },
 
     stop() {
@@ -203,6 +245,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
                     durationSeconds: totalSeconds,
                 }).catch(() => { });
             }
+            AudioManager.setAudioSessionActivity(false).catch(() => { });
+            PlaybackNotificationManager.hide().catch(() => { });
         }
 
         set({
@@ -227,4 +271,26 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
 
         fadeOutAndClose(context, voices);
     },
-}));
+
+    // Extends/shortens how much longer the *session* runs before auto-stop —
+    // not a seek within the looping track content. No-ops on a no-limit (∞)
+    // session, since there's no countdown to adjust. Reschedules the
+    // auto-stop timer to match so the session actually stops at the new time
+    // instead of the original one.
+    adjustSessionTime(deltaSeconds) {
+        const { sessionMinutes, isPlaying, sessionEndAt, pausedRemainingMs, sessionTimer } = get();
+        if (sessionMinutes === null) return;
+        const deltaMs = deltaSeconds * 1000;
+
+        if (isPlaying && sessionEndAt !== null) {
+            const nextRemainingMs = Math.max(0, sessionEndAt - Date.now() + deltaMs);
+            if (sessionTimer) clearTimeout(sessionTimer);
+            const timer = setTimeout(() => get().stop(), nextRemainingMs);
+            set({ sessionEndAt: Date.now() + nextRemainingMs, sessionTimer: timer });
+        } else if (pausedRemainingMs !== null) {
+            set({ pausedRemainingMs: Math.max(0, pausedRemainingMs + deltaMs) });
+        }
+        updateNowPlaying();
+    },
+    };
+});

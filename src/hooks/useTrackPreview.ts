@@ -28,20 +28,26 @@ export function useTrackPreview() {
         const token = tokenRef.current;
         setLoadingSlug(track.slug);
 
-        const context = new AudioContext();
-        await context.resume();
-        const buffers = await decodeTrackBuffers(context, track);
+        try {
+            const context = new AudioContext();
+            await context.resume();
+            const buffers = await decodeTrackBuffers(context, track);
 
-        if (tokenRef.current !== token) {
-            context.close().catch(() => { });
-            return;
+            if (tokenRef.current !== token) {
+                context.close().catch(() => { });
+                return;
+            }
+
+            const { voices } = startVoices(context, track, track.defaultAxisValues, buffers, 0);
+            contextRef.current = context;
+            voicesRef.current = voices;
+            setPlayingSlug(track.slug);
+        } catch {
+            // Decode/fetch failed — fall through to clear the loading state below
+            // instead of leaving the card stuck on "Loading…" forever.
+        } finally {
+            if (tokenRef.current === token) setLoadingSlug(null);
         }
-
-        const { voices } = startVoices(context, track, track.defaultAxisValues, buffers, 0);
-        contextRef.current = context;
-        voicesRef.current = voices;
-        setLoadingSlug(null);
-        setPlayingSlug(track.slug);
     }
 
     function updateAxis(x: number, y: number) {
