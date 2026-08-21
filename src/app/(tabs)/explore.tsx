@@ -1,32 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import createStyles from '@/src/assets/styles/explore.styles';
 import AmbientBackground from '@/src/components/AmbientBackground';
 import TrackGrid from '@/src/components/TrackGrid';
 import { COLORS } from '@/src/constants/theme';
-import { Track, fetchTracks } from '@/src/data/tracks';
+import { Track } from '@/src/data/tracks';
 import { useTrackPreview } from '@/src/hooks/useTrackPreview';
+import { useTracksStore } from '@/src/store/tracksStore';
 
 // Renders a browse-only catalog where tapping a track plays a local preview, decoupled from the app-wide session player.
 export default function ExploreScreen() {
     const styles = createStyles(COLORS);
-    const [tracks, setTracks] = useState<Track[]>([]);
-    const [isLoadingTracks, setIsLoadingTracks] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const tracks = useTracksStore((state) => state.tracks);
+    const isLoadingTracks = useTracksStore((state) => state.isLoading);
+    const loadError = useTracksStore((state) => state.error);
     const { playingSlug, loadingSlug, play, stop } = useTrackPreview();
 
     useEffect(() => {
-        let cancelled = false;
-
-        fetchTracks()
-            .then((rows) => { if (!cancelled) setTracks(rows); })
-            .catch((err) => { if (!cancelled) setLoadError(err?.message ?? 'Could not load sounds.'); })
-            .finally(() => { if (!cancelled) setIsLoadingTracks(false); });
-
-        return () => { cancelled = true; };
+        useTracksStore.getState().ensureLoaded();
     }, []);
 
     function handleTrackPress(track: Track) {

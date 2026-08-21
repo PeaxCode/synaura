@@ -136,7 +136,7 @@ export default function AmbientBackground({ showLines = true }: { showLines?: bo
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <LinearGradient
-                colors={['rgba(16,18,32,0.2)', COLORS.bg]}
+                colors={['rgba(13,13,18,0.2)', COLORS.bg]}
                 style={StyleSheet.absoluteFill}
             />
 

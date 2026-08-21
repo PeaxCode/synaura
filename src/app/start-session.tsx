@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ComponentProps, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View, useWindowDimensions } from 'react-native';
@@ -10,9 +10,11 @@ import ModalSheet from '@/src/components/ModalSheet';
 import PressableScale from '@/src/components/PressableScale';
 import TrackGrid from '@/src/components/TrackGrid';
 import { COLORS } from '@/src/constants/theme';
-import { AxisValues, Category, Track, fetchTracks } from '@/src/data/tracks';
+import { fetchPresetById } from '@/src/data/library';
+import { AxisValues, Category, Track, fetchTrackById } from '@/src/data/tracks';
 import { useTrackPreview } from '@/src/hooks/useTrackPreview';
 import { usePlaybackStore } from '@/src/store/playbackStore';
+import { useTracksStore } from '@/src/store/tracksStore';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 type Step = 'track' | 'duration' | 'tune';
@@ -41,18 +43,53 @@ const PAD_SIZE_MAX = 260;
 export default function StartSessionScreen() {
     const styles = createStyles(COLORS);
     const { width } = useWindowDimensions();
-    const [step, setStep] = useState<Step>('track');
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const params = useLocalSearchParams<{ presetId?: string; trackId?: string }>();
+    const [step, setStep] = useState<Step>(params.presetId || params.trackId ? 'duration' : 'track');
+    const tracks = useTracksStore((state) => state.tracks);
+    const isLoadingTracks = useTracksStore((state) => state.isLoading);
     const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
     const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
+    const [resumePresetId, setResumePresetId] = useState<string | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [axisValues, setAxisValues] = useState<AxisValues>({ x: 0.5, y: 0.5 });
     const padPosition = useSharedValue<AxisValues>({ x: 0.5, y: 0.5 });
     const { playingSlug, loadingSlug, play, stop, updateAxis } = useTrackPreview();
 
     useEffect(() => {
-        fetchTracks().then(setTracks).catch(() => { });
+        useTracksStore.getState().ensureLoaded();
     }, []);
+
+    // Replaying anything opened from Library (a saved tune, or a plain track
+    // from Favorites/Downloads/Recent) — skip track selection, land straight
+    // on "Session length" so a duration always has to be (re)confirmed
+    // instead of silently reusing/defaulting one for this particular replay.
+    useEffect(() => {
+        if (!params.presetId && !params.trackId) return;
+        let cancelled = false;
+
+        async function load() {
+            if (params.presetId) {
+                const preset = await fetchPresetById(params.presetId!);
+                if (cancelled || !preset?.trackId) return;
+                const track = await fetchTrackById(preset.trackId);
+                if (cancelled || !track) return;
+                setSelectedTrack(track);
+                setAxisValues(preset.axisValues);
+                padPosition.value = preset.axisValues;
+                setSelectedMinutes(preset.durationMinutes);
+                setResumePresetId(preset.id);
+            } else if (params.trackId) {
+                const track = await fetchTrackById(params.trackId);
+                if (cancelled || !track) return;
+                setSelectedTrack(track);
+                setAxisValues(track.defaultAxisValues);
+                padPosition.value = track.defaultAxisValues;
+            }
+        }
+
+        load().catch(() => { });
+        return () => { cancelled = true; };
+    }, [params.presetId, params.trackId]);
 
     const padSize = Math.min(PAD_SIZE_MAX, width - 56 - 44);
 
@@ -78,10 +115,18 @@ export default function StartSessionScreen() {
         stop();
         setIsStarting(true);
         const store = usePlaybackStore.getState();
-        // setSessionMinutes must run after playback is active so it can read isPlaying to start the timer.
-        await store.playTrack(selectedTrack, axisValues);
-        store.setSessionMinutes(selectedMinutes);
+        // playTrack sets currentTrack synchronously (before its own first
+        // await) — call it before navigating so Player's mount guard (which
+        // redirects away if currentTrack is still null) never fires. Then
+        // navigate immediately rather than waiting for the rest of
+        // playTrack — fetch+decode of a real, full-length track can take
+        // several seconds, and sitting on this button the whole time read
+        // as stuck.
+        const playing = store.playTrack(selectedTrack, axisValues, resumePresetId ?? undefined);
         router.replace('/player');
+        // setSessionMinutes must run after playback is active so it can read isPlaying to start the timer.
+        await playing;
+        store.setSessionMinutes(selectedMinutes);
     }
 
     const trackSummaryContent = selectedTrack && (
@@ -110,7 +155,7 @@ export default function StartSessionScreen() {
                 {step === 'track' && (
                     <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1 }}>
                         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                            {tracks.length === 0 ? (
+                            {tracks.length === 0 && isLoadingTracks ? (
                                 <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.accent} />
                             ) : (
                                 <TrackGrid

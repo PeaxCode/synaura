@@ -22,10 +22,10 @@ const createStyles = (COLORS: any) =>
         stateIndicator: {
             marginTop: 32,
         },
-        // Compact tabs to fit three items across the screen width.
+        // Compact tabs to fit four items across the screen width.
         tabToggle: {
             flexDirection: 'row',
-            gap: 8,
+            gap: 6,
             marginTop: 24,
         },
         tabButton: {
@@ -35,6 +35,7 @@ const createStyles = (COLORS: any) =>
             justifyContent: 'center',
             gap: 5,
             paddingVertical: 10,
+            paddingHorizontal: 2,
             borderRadius: RADIUS.md,
             borderWidth: 1,
             borderColor: COLORS.divider,
@@ -45,7 +46,7 @@ const createStyles = (COLORS: any) =>
             backgroundColor: 'rgba(145,132,217,0.14)',
         },
         tabButtonLabel: {
-            fontSize: 12,
+            fontSize: 11,
             fontFamily: FONTS.medium,
             color: COLORS.neutral[400],
         },
@@ -73,6 +74,23 @@ const createStyles = (COLORS: any) =>
             width: '100%',
             aspectRatio: 1,
             backgroundColor: 'rgba(145,132,217,0.08)',
+        },
+        downloadedBadge: {
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            paddingVertical: 3,
+            paddingHorizontal: 7,
+            borderRadius: RADIUS.sm,
+            backgroundColor: 'rgba(10,10,18,0.72)',
+        },
+        downloadedBadgeLabel: {
+            fontSize: 10,
+            fontFamily: FONTS.medium,
+            color: COLORS.text,
         },
         cardBody: {
             padding: 12,

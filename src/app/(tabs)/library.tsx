@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,23 +8,25 @@ import createStyles from '@/src/assets/styles/library.styles';
 import AmbientBackground from '@/src/components/AmbientBackground';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
-import { Preset, RecentPlay, fetchFavoriteTrackIds, fetchPresetById, fetchPresets, fetchRecentPlays } from '@/src/data/library';
-import { Mode, Track, fetchTrackById, fetchTracks } from '@/src/data/tracks';
+import { Preset, RecentPlay, fetchFavoriteTrackIds, fetchPresets, fetchRecentPlays } from '@/src/data/library';
+import { isTrackOffline } from '@/src/data/offline';
+import { Mode, Track } from '@/src/data/tracks';
 import { useAuthStore } from '@/src/store/authStore';
-import { usePlaybackStore } from '@/src/store/playbackStore';
+import { useTracksStore } from '@/src/store/tracksStore';
 
-type LibraryTab = 'favorites' | 'tunes' | 'recent';
+type LibraryTab = 'favorites' | 'tunes' | 'recent' | 'downloaded';
 
 const TABS: { slug: LibraryTab; label: string }[] = [
     { slug: 'favorites', label: 'Favorites' },
     { slug: 'tunes', label: 'My Tunes' },
     { slug: 'recent', label: 'Recent' },
+    { slug: 'downloaded', label: 'Downloads' },
 ];
 
 const MODE_LABEL: Record<Mode, string> = { focus: 'Focus', relax: 'Relax' };
 
 function isLibraryTab(value: string | string[] | undefined): value is LibraryTab {
-    return value === 'favorites' || value === 'tunes' || value === 'recent';
+    return value === 'favorites' || value === 'tunes' || value === 'recent' || value === 'downloaded';
 }
 
 function formatDurationLabel(minutes: number | null) {
@@ -40,15 +43,21 @@ export default function LibraryScreen() {
     const styles = createStyles(COLORS);
     const params = useLocalSearchParams<{ tab?: string }>();
     const userId = useAuthStore((state) => state.user?.id);
-    const playTrack = usePlaybackStore((state) => state.playTrack);
-    const setSessionMinutes = usePlaybackStore((state) => state.setSessionMinutes);
 
     const [tab, setTab] = useState<LibraryTab>('favorites');
     const [isLoading, setIsLoading] = useState(true);
-    const [favoriteTracks, setFavoriteTracks] = useState<Track[]>([]);
+    const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
     const [presets, setPresets] = useState<Preset[]>([]);
     const [recentPlays, setRecentPlays] = useState<RecentPlay[]>([]);
-    const [replayingId, setReplayingId] = useState<string | null>(null);
+
+    // Tracks come from the shared cache (warmed at app launch) instead of a
+    // per-focus fetch — only favorites/presets/recent are user-specific and
+    // need refreshing every time this tab regains focus.
+    const allTracks = useTracksStore((state) => state.tracks);
+    const favoriteTracks = allTracks.filter((track) => favoriteIds.has(track.id));
+    // isTrackOffline is a synchronous filesystem check (src/data/offline.ts) —
+    // recomputed on every render instead of cached, so it can never go stale.
+    const downloadedTracks = allTracks.filter((track) => isTrackOffline(track));
 
     // Switches to the specified tab if linked externally (e.g., from the Home screen's Recent section).
     useEffect(() => {
@@ -58,13 +67,14 @@ export default function LibraryScreen() {
     // Re-fetches library data on every tab focus to stay in sync with changes made while the Player was open.
     useFocusEffect(
         useCallback(() => {
+            useTracksStore.getState().ensureLoaded();
             if (!userId) { setIsLoading(false); return; }
 
             let cancelled = false;
-            Promise.all([fetchTracks(), fetchFavoriteTrackIds(userId), fetchPresets(userId), fetchRecentPlays(userId, 10)])
-                .then(([tracks, favoriteIds, presetRows, plays]) => {
+            Promise.all([fetchFavoriteTrackIds(userId), fetchPresets(userId), fetchRecentPlays(userId, 10)])
+                .then(([favoriteIdSet, presetRows, plays]) => {
                     if (cancelled) return;
-                    setFavoriteTracks(tracks.filter((track) => favoriteIds.has(track.id)));
+                    setFavoriteIds(favoriteIdSet);
                     setPresets(presetRows);
                     setRecentPlays(plays);
                 })
@@ -75,53 +85,28 @@ export default function LibraryScreen() {
         }, [userId]),
     );
 
-    async function handlePlayTrack(track: Track) {
-        if (replayingId) return;
-        setReplayingId(track.id);
-        try {
-            await playTrack(track);
-            router.push('/player');
-        } finally {
-            setReplayingId(null);
-        }
+    // Sends the user to start-session's duration step instead of replaying
+    // immediately — every tune opened from Library (favorite, download, or
+    // recent) asks for a session length instead of silently defaulting one.
+    function handlePlayTrack(track: Track) {
+        router.push({ pathname: '/start-session', params: { trackId: track.id } });
     }
 
-    async function handlePlayPreset(preset: Preset) {
-        if (replayingId || !preset.trackId) return;
-        setReplayingId(preset.id);
-        try {
-            const track = await fetchTrackById(preset.trackId);
-            if (track) {
-                await playTrack(track, preset.axisValues, preset.id);
-                setSessionMinutes(preset.durationMinutes);
-                router.push('/player');
-            }
-        } finally {
-            setReplayingId(null);
-        }
+    // Sends the user to start-session's duration step instead of replaying
+    // immediately — otherwise the tune's saved duration gets silently
+    // reapplied with no way to change it for this particular replay.
+    function handlePlayPreset(preset: Preset) {
+        router.push({ pathname: '/start-session', params: { presetId: preset.id } });
     }
 
-    // Resolves a recent play into a replayable session by determining if it was a custom preset or a default track.
-    async function handlePlayRecent(play: RecentPlay) {
-        const replayKey = play.presetId ?? play.trackId;
-        if (replayingId || !replayKey) return;
-        setReplayingId(replayKey);
-        try {
-            if (play.presetId) {
-                const preset = await fetchPresetById(play.presetId);
-                if (!preset?.trackId) return;
-                const track = await fetchTrackById(preset.trackId);
-                if (!track) return;
-                await playTrack(track, preset.axisValues, preset.id);
-                setSessionMinutes(preset.durationMinutes);
-            } else if (play.trackId) {
-                const track = await fetchTrackById(play.trackId);
-                if (!track) return;
-                await playTrack(track);
-            }
-            router.push('/player');
-        } finally {
-            setReplayingId(null);
+    // Same duration-ask treatment as favorites/tunes — resolving which
+    // preset/track a recent play maps to happens in start-session itself,
+    // this just forwards whichever id it logged.
+    function handlePlayRecent(play: RecentPlay) {
+        if (play.presetId) {
+            router.push({ pathname: '/start-session', params: { presetId: play.presetId } });
+        } else if (play.trackId) {
+            router.push({ pathname: '/start-session', params: { trackId: play.trackId } });
         }
     }
 
@@ -143,7 +128,7 @@ export default function LibraryScreen() {
                                 style={[styles.tabButton, isActive && styles.tabButtonActive]}
                                 onPress={() => setTab(t.slug)}
                             >
-                                <Text style={[styles.tabButtonLabel, isActive && styles.tabButtonLabelActive]}>{t.label}</Text>
+                                <Text style={[styles.tabButtonLabel, isActive && styles.tabButtonLabelActive]} numberOfLines={1}>{t.label}</Text>
                             </PressableScale>
                         );
                     })}
@@ -161,12 +146,17 @@ export default function LibraryScreen() {
                             ) : (
                                 favoriteTracks.map((track) => (
                                     <PressableScale key={track.id} style={styles.card} onPress={() => handlePlayTrack(track)}>
-                                        <View style={styles.cardArt} />
+                                        <View style={styles.cardArt}>
+                                            {isTrackOffline(track) && (
+                                                <View style={styles.downloadedBadge}>
+                                                    <Ionicons name="checkmark-circle" size={12} color={COLORS.accent} />
+                                                    <Text style={styles.downloadedBadgeLabel}>Downloaded</Text>
+                                                </View>
+                                            )}
+                                        </View>
                                         <View style={styles.cardBody}>
                                             <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
-                                            <Text style={styles.cardSubtitle}>
-                                                {replayingId === track.id ? 'Loading…' : MODE_LABEL[track.mode]}
-                                            </Text>
+                                            <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
                                         </View>
                                     </PressableScale>
                                 ))
@@ -185,10 +175,26 @@ export default function LibraryScreen() {
                                         <View style={styles.cardBody}>
                                             <Text style={styles.cardTitle} numberOfLines={1}>{preset.name ?? 'Untitled'}</Text>
                                             <Text style={styles.cardSubtitle}>
-                                                {replayingId === preset.id
-                                                    ? 'Loading…'
-                                                    : `Custom · ${MODE_LABEL[preset.mode]} · ${formatDurationLabel(preset.durationMinutes)}`}
+                                                {`Custom · ${MODE_LABEL[preset.mode]} · ${formatDurationLabel(preset.durationMinutes)}`}
                                             </Text>
+                                        </View>
+                                    </PressableScale>
+                                ))
+                            )
+                        )}
+
+                        {tab === 'downloaded' && (
+                            downloadedTracks.length === 0 ? (
+                                <View style={styles.emptyCard}>
+                                    <Text style={styles.emptyText}>No downloads yet</Text>
+                                </View>
+                            ) : (
+                                downloadedTracks.map((track) => (
+                                    <PressableScale key={track.id} style={styles.card} onPress={() => handlePlayTrack(track)}>
+                                        <View style={styles.cardArt} />
+                                        <View style={styles.cardBody}>
+                                            <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
+                                            <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
                                         </View>
                                     </PressableScale>
                                 ))
@@ -201,22 +207,17 @@ export default function LibraryScreen() {
                                     <Text style={styles.emptyText}>No sessions yet</Text>
                                 </View>
                             ) : (
-                                recentPlays.map((play, i) => {
-                                    const replayKey = play.presetId ?? play.trackId;
-                                    return (
-                                        <PressableScale key={i} style={styles.card} onPress={() => handlePlayRecent(play)}>
-                                            <View style={styles.cardArt} />
-                                            <View style={styles.cardBody}>
-                                                <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
-                                                <Text style={styles.cardSubtitle}>
-                                                    {replayKey && replayingId === replayKey
-                                                        ? 'Loading…'
-                                                        : `${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
-                                                </Text>
-                                            </View>
-                                        </PressableScale>
-                                    );
-                                })
+                                recentPlays.map((play, i) => (
+                                    <PressableScale key={i} style={styles.card} onPress={() => handlePlayRecent(play)}>
+                                        <View style={styles.cardArt} />
+                                        <View style={styles.cardBody}>
+                                            <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
+                                            <Text style={styles.cardSubtitle}>
+                                                {`${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
+                                            </Text>
+                                        </View>
+                                    </PressableScale>
+                                ))
                             )
                         )}
                     </View>

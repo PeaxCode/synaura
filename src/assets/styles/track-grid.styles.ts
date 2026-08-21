@@ -26,7 +26,7 @@ const createStyles = (COLORS: any) =>
             backgroundColor: 'rgba(145,132,217,0.14)',
         },
         modeButtonLabel: {
-            fontSize: 12,
+            fontSize: 11,
             fontFamily: FONTS.medium,
             color: COLORS.neutral[400],
         },

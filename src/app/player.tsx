@@ -2,14 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import createStyles from '@/src/assets/styles/player.styles';
+import DownloadRing from '@/src/components/DownloadRing';
 import ModalSheet from '@/src/components/ModalSheet';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
 import { deletePreset, favoriteTrack, fetchFavoriteTrackIds, findPresetByTrack, savePreset, unfavoriteTrack } from '@/src/data/library';
+import { downloadTrackOffline, isTrackOffline, removeTrackOffline } from '@/src/data/offline';
 import { useAuthStore } from '@/src/store/authStore';
 import { usePlaybackStore } from '@/src/store/playbackStore';
+
+const SESSION_ADJUST_SECONDS = 15;
 
 function formatRemaining(ms: number) {
     const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -26,6 +30,10 @@ export default function PlayerScreen() {
     const [savedPresetId, setSavedPresetId] = useState<string | null>(null);
     const [isSaveBusy, setIsSaveBusy] = useState(false);
     const isSaved = savedPresetId !== null;
+    const [isOffline, setIsOffline] = useState(false);
+    const [isOfflineBusy, setIsOfflineBusy] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const userId = useAuthStore((state) => state.user?.id);
     const currentTrack = usePlaybackStore((state) => state.currentTrack);
@@ -37,6 +45,7 @@ export default function PlayerScreen() {
     const pausedRemainingMs = usePlaybackStore((state) => state.pausedRemainingMs);
     const pause = usePlaybackStore((state) => state.pause);
     const resume = usePlaybackStore((state) => state.resume);
+    const adjustSessionTime = usePlaybackStore((state) => state.adjustSessionTime);
 
     useEffect(() => {
         if (currentTrack) return;
@@ -67,11 +76,25 @@ export default function PlayerScreen() {
         return () => { cancelled = true; };
     }, [userId, currentTrack?.id]);
 
+    // Local-file checks are synchronous (see src/data/offline.ts), so this just
+    // re-reads state whenever the current track changes.
+    useEffect(() => {
+        setIsOffline(currentTrack ? isTrackOffline(currentTrack) : false);
+    }, [currentTrack?.id]);
+
     if (!currentTrack)
         return null;
 
     const remainingMs = sessionEndAt ? sessionEndAt - now : pausedRemainingMs;
     const timerLabel = remainingMs === null ? '∞' : formatRemaining(remainingMs);
+    // Session-elapsed progress, not track position — stems loop continuously,
+    // so "how far into the track" isn't meaningful, but "how far into the
+    // chosen session length" is. null (no bar) on an unlimited (∞) session,
+    // since there's no total to measure progress against.
+    const totalMs = sessionMinutes !== null ? sessionMinutes * 60 * 1000 : null;
+    const progress = totalMs !== null && remainingMs !== null
+        ? Math.min(1, Math.max(0, 1 - remainingMs / totalMs))
+        : null;
 
     function handlePlayPause() {
         if (isPlaying) pause();
@@ -111,6 +134,27 @@ export default function PlayerScreen() {
         }
     }
 
+    // No entitlement check yet — offline is free for everyone until Faz 4.1
+    // (RevenueCat) wires up a real gate here.
+    async function handleToggleOffline() {
+        if (!currentTrack || isOfflineBusy) return;
+        setIsOfflineBusy(true);
+        setDownloadProgress(0);
+        try {
+            if (isOffline) {
+                removeTrackOffline(currentTrack.id);
+                setIsOffline(false);
+            } else {
+                await downloadTrackOffline(currentTrack, setDownloadProgress);
+                setIsOffline(true);
+            }
+        } catch {
+            // best-effort — leave the control pressable so the user can retry
+        } finally {
+            setIsOfflineBusy(false);
+        }
+    }
+
     return (
         <ModalSheet>
             <StatusBar style="light" />
@@ -123,18 +167,26 @@ export default function PlayerScreen() {
                     </View>
                     <Text style={styles.trackTitle}>{currentTrack.name}</Text>
                     <Text style={styles.trackMeta}>{currentTrack.mode === 'relax' ? 'Relax' : 'Focus'}</Text>
+
+                    {progress !== null && (
+                        <View style={styles.progressTrack}>
+                            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+                        </View>
+                    )}
                 </View>
 
-                <View style={{ flex: 1, minHeight: 24 }} />
-
-                {/* TRANSPORT — save/favorite flank play where skip back/forward used to be */}
+                {/* TRANSPORT — ±15s to the session countdown flank play (no-op on an
+                    unlimited/∞ session, dimmed in that case); save/favorite/download
+                    moved into the ⋯ menu */}
                 <View style={styles.transportRow}>
-                    <PressableScale style={styles.sideButton} onPress={handleToggleSave}>
-                        {isSaveBusy ? (
-                            <ActivityIndicator size="small" color={COLORS.accent} />
-                        ) : (
-                            <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={22} color={isSaved ? COLORS.accent : COLORS.neutral[400]} />
-                        )}
+                    <PressableScale
+                        style={styles.sideButton}
+                        onPress={() => sessionMinutes !== null && adjustSessionTime(-SESSION_ADJUST_SECONDS)}
+                    >
+                        <Ionicons name="arrow-undo-outline" size={19} color={sessionMinutes === null ? COLORS.neutral[700] : COLORS.neutral[400]} />
+                        <Text style={[styles.skipButtonLabel, sessionMinutes === null && styles.skipButtonLabelDisabled]}>
+                            {SESSION_ADJUST_SECONDS}s
+                        </Text>
                     </PressableScale>
                     <PressableScale style={styles.playButton} onPress={handlePlayPause}>
                         {isLoading ? (
@@ -143,9 +195,69 @@ export default function PlayerScreen() {
                             <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color={COLORS.bg} />
                         )}
                     </PressableScale>
-                    <PressableScale style={styles.sideButton} onPress={handleToggleFavorite}>
-                        <Ionicons name={isFavorited ? 'heart' : 'heart-outline'} size={22} color={isFavorited ? COLORS.accent : COLORS.neutral[400]} />
+                    <PressableScale
+                        style={styles.sideButton}
+                        onPress={() => sessionMinutes !== null && adjustSessionTime(SESSION_ADJUST_SECONDS)}
+                    >
+                        <Ionicons name="arrow-redo-outline" size={19} color={sessionMinutes === null ? COLORS.neutral[700] : COLORS.neutral[400]} />
+                        <Text style={[styles.skipButtonLabel, sessionMinutes === null && styles.skipButtonLabelDisabled]}>
+                            {SESSION_ADJUST_SECONDS}s
+                        </Text>
                     </PressableScale>
+
+                    <View style={styles.menuAnchor}>
+                        <PressableScale style={styles.menuButton} onPress={() => setIsMenuOpen((v) => !v)}>
+                            <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.neutral[400]} />
+                        </PressableScale>
+
+                        {isMenuOpen && (
+                            <>
+                                <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)} />
+                                <View style={styles.menu}>
+                                    <PressableScale
+                                        style={styles.menuRow}
+                                        onPress={handleToggleSave}
+                                    >
+                                        {isSaveBusy ? (
+                                            <ActivityIndicator size="small" color={COLORS.accent} />
+                                        ) : (
+                                            <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={18} color={isSaved ? COLORS.accent : COLORS.neutral[300]} />
+                                        )}
+                                        <Text style={[styles.menuRowLabel, isSaved && styles.menuRowLabelActive]}>
+                                            {isSaved ? 'Saved to Library' : 'Save to Library'}
+                                        </Text>
+                                    </PressableScale>
+
+                                    <PressableScale
+                                        style={styles.menuRow}
+                                        onPress={handleToggleFavorite}
+                                    >
+                                        <Ionicons name={isFavorited ? 'heart' : 'heart-outline'} size={18} color={isFavorited ? COLORS.accent : COLORS.neutral[300]} />
+                                        <Text style={[styles.menuRowLabel, isFavorited && styles.menuRowLabelActive]}>
+                                            {isFavorited ? 'Favorited' : 'Favorite'}
+                                        </Text>
+                                    </PressableScale>
+
+                                    <PressableScale
+                                        style={styles.menuRow}
+                                        onPress={handleToggleOffline}
+                                    >
+                                        <DownloadRing
+                                            size={18}
+                                            progress={downloadProgress}
+                                            isDownloading={isOfflineBusy}
+                                            isDownloaded={isOffline}
+                                            color={COLORS.accent}
+                                            trackColor={COLORS.neutral[300]}
+                                        />
+                                        <Text style={[styles.menuRowLabel, isOffline && styles.menuRowLabelActive]}>
+                                            {isOffline ? 'Downloaded' : isOfflineBusy ? 'Downloading…' : 'Download'}
+                                        </Text>
+                                    </PressableScale>
+                                </View>
+                            </>
+                        )}
+                    </View>
                 </View>
             </View>
         </ModalSheet>
