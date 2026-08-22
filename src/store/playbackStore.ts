@@ -3,6 +3,7 @@ import { logPresetPlay } from '@/src/data/library';
 import { resolvePlaybackStemUrls } from '@/src/data/offline';
 import { AxisValues, STEM_LAYERS, StemLayer, Track, mixForAxis } from '@/src/data/tracks';
 import { useAuthStore } from '@/src/store/authStore';
+import { useLibraryStore } from '@/src/store/libraryStore';
 import { AudioBuffer, AudioContext, AudioManager, PlaybackNotificationManager } from 'react-native-audio-api';
 import { create } from 'zustand';
 
@@ -19,6 +20,8 @@ interface PlaybackState {
     isLoading: boolean;
     isPlaying: boolean;
     loadToken: number;
+    sessionMode: 'continuous' | 'cycles';
+    cycleRhythm: 'classic' | 'deep';
     sessionMinutes: number | null;
     sessionEndAt: number | null;
     sessionTimer: ReturnType<typeof setTimeout> | null;
@@ -29,7 +32,7 @@ interface PlaybackState {
     playSegmentStartedAt: number | null;
     playTrack: (track: Track, axis?: AxisValues, presetId?: string) => Promise<void>;
     updateAxis: (x: number, y: number) => void;
-    setSessionMinutes: (minutes: number | null) => void;
+    setSessionMinutes: (minutes: number | null, sessionMode?: 'continuous' | 'cycles', cycleRhythm?: 'classic' | 'deep') => void;
     pause: () => void;
     resume: () => Promise<void>;
     stop: () => void;
@@ -69,6 +72,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     isLoading: false,
     isPlaying: false,
     loadToken: 0,
+    sessionMode: 'continuous',
+    cycleRhythm: 'classic',
     sessionMinutes: null,
     sessionEndAt: null,
     sessionTimer: null,
@@ -142,12 +147,12 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         set({ axisValues: { x, y } });
     },
 
-    setSessionMinutes(minutes) {
+    setSessionMinutes(minutes, sessionMode = 'continuous', cycleRhythm = 'classic') {
         const { sessionTimer, isPlaying } = get();
         if (sessionTimer) clearTimeout(sessionTimer);
 
         if (minutes === null) {
-            set({ sessionMinutes: null, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: null });
+            set({ sessionMinutes: null, sessionMode, cycleRhythm, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: null });
             updateNowPlaying();
             return;
         }
@@ -155,9 +160,9 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
         const ms = minutes * 60 * 1000;
         if (isPlaying) {
             const timer = setTimeout(() => get().stop(), ms);
-            set({ sessionMinutes: minutes, sessionEndAt: Date.now() + ms, sessionTimer: timer, pausedRemainingMs: null });
+            set({ sessionMinutes: minutes, sessionMode, cycleRhythm, sessionEndAt: Date.now() + ms, sessionTimer: timer, pausedRemainingMs: null });
         } else {
-            set({ sessionMinutes: minutes, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: ms });
+            set({ sessionMinutes: minutes, sessionMode, cycleRhythm, sessionEndAt: null, sessionTimer: null, pausedRemainingMs: ms });
         }
         updateNowPlaying();
     },
@@ -238,12 +243,25 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
             const totalSeconds = Math.round(sessionPlaySeconds + segmentSeconds);
             const userId = useAuthStore.getState().user?.id;
             if (userId && totalSeconds >= MIN_LOGGABLE_SECONDS) {
+                useLibraryStore.getState().addOptimisticRecentPlay({
+                    playedAt: new Date().toISOString(),
+                    durationSeconds: totalSeconds,
+                    name: currentTrack.name,
+                    mode: currentTrack.mode,
+                    trackId: currentTrack.id,
+                    presetId: currentPresetId,
+                });
+
                 logPresetPlay({
                     userId,
                     trackId: currentTrack.id,
                     presetId: currentPresetId,
                     durationSeconds: totalSeconds,
-                }).catch(() => { });
+                })
+                    .then(() => {
+                        useLibraryStore.getState().refreshRecentPlays(userId);
+                    })
+                    .catch(() => { });
             }
             AudioManager.setAudioSessionActivity(false).catch(() => { });
             PlaybackNotificationManager.hide().catch(() => { });
@@ -258,6 +276,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
             currentPresetId: null,
             isPlaying: false,
             isLoading: false,
+            sessionMode: 'continuous',
+            cycleRhythm: 'classic',
             sessionMinutes: null,
             sessionEndAt: null,
             sessionTimer: null,

@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import createStyles from '@/src/assets/styles/settings.styles';
+import AmbientBackground from '@/src/components/AmbientBackground';
 import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
 import { deleteAccount, linkGoogleAccount } from '@/src/data/auth';
@@ -34,6 +35,8 @@ export default function SettingsScreen() {
     const googleIdentity = identities.find((i) => i.provider === 'google');
     const appleIdentity = identities.find((i) => i.provider === 'apple');
     const isGuest = !!user?.is_anonymous;
+
+    const initial = (fullName ? fullName[0] : (user?.email ? user.email[0] : 'S')).toUpperCase();
 
     useFocusEffect(
         useCallback(() => {
@@ -119,9 +122,18 @@ export default function SettingsScreen() {
         );
     }
 
+    function handleUpgrade() {
+        Alert.alert(
+            'Synaura Pro',
+            'Unlock all neuro-acoustic soundscapes, unlimited offline sessions, and custom frequencies.',
+            [{ text: 'Got it', style: 'default' }]
+        );
+    }
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <StatusBar style="light" />
+            <AmbientBackground />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <Text style={styles.title}>Settings</Text>
@@ -129,22 +141,31 @@ export default function SettingsScreen() {
                 {/* PROFILE */}
                 <PressableScale style={styles.profileCard} onPress={() => router.push('/edit-profile')}>
                     <LinearGradient
-                        colors={[COLORS.accentRamp[400], COLORS.accentRamp[700]]}
-                        start={{ x: 0.36, y: 0.3 }}
+                        colors={['#8B7FD4', '#5D5294']}
+                        start={{ x: 0.2, y: 0.2 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.avatar}
-                    />
+                    >
+                        <Text style={styles.avatarText}>{initial}</Text>
+                    </LinearGradient>
                     <View style={styles.profileText}>
                         <Text style={styles.profileName} numberOfLines={1}>
                             {fullName || user?.email || 'Guest'}
                         </Text>
-                        {fullName && user?.email && (
-                            <Text style={styles.profileEmail} numberOfLines={1}>
-                                {user.email}
-                            </Text>
-                        )}
+                        <Text style={styles.profileEmail} numberOfLines={1}>
+                            {fullName && user?.email ? user.email : 'Free tier'}
+                        </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={COLORS.neutral[500]} />
+
+                    <PressableScale
+                        style={styles.upgradeBadge}
+                        onPress={(e) => {
+                            e.stopPropagation?.();
+                            handleUpgrade();
+                        }}
+                    >
+                        <Text style={styles.upgradeBadgeText}>Upgrade</Text>
+                    </PressableScale>
                 </PressableScale>
 
                 {/* ACCOUNT */}
@@ -153,25 +174,30 @@ export default function SettingsScreen() {
 
                     <View style={styles.sectionCard}>
                         {!appleIdentity && (
-                            <PressableScale
-                                style={styles.row}
-                                onPress={handleGoogleRow}
-                                disabled={busy !== 'none' || !!googleIdentity}
-                            >
-                                <Text style={styles.rowLabel}>Google account</Text>
-                                {busy === 'google' ? (
-                                    <ActivityIndicator color={COLORS.neutral[500]} />
-                                ) : (
-                                    <Text style={[styles.rowValue, !googleIdentity && styles.rowValueAccent]}>
-                                        {googleIdentity ? 'Linked' : 'Link'}
-                                    </Text>
-                                )}
-                            </PressableScale>
+                            <>
+                                <PressableScale
+                                    style={styles.row}
+                                    onPress={handleGoogleRow}
+                                    disabled={busy !== 'none' || !!googleIdentity}
+                                >
+                                    <Text style={styles.rowLabel}>Google account</Text>
+                                    {busy === 'google' ? (
+                                        <ActivityIndicator size="small" color={COLORS.accent} />
+                                    ) : googleIdentity ? (
+                                        <Text style={styles.linkedText}>Linked</Text>
+                                    ) : (
+                                        <View style={styles.linkButton}>
+                                            <Text style={styles.linkButtonText}>Link</Text>
+                                        </View>
+                                    )}
+                                </PressableScale>
+                                <View style={styles.divider} />
+                            </>
                         )}
 
-                        <PressableScale style={[styles.row, styles.rowLast]} onPress={handleSignOut}>
+                        <PressableScale style={styles.row} onPress={handleSignOut}>
                             <Text style={styles.rowLabel}>Sign out</Text>
-                            <Ionicons name="log-out-outline" size={18} color={COLORS.neutral[500]} />
+                            <Ionicons name="log-out-outline" size={18} color={COLORS.neutral[400]} />
                         </PressableScale>
                     </View>
                 </View>
@@ -183,11 +209,12 @@ export default function SettingsScreen() {
                     <View style={styles.sectionCard}>
                         <PressableScale style={styles.row} onPress={openLegalUrl}>
                             <Text style={styles.rowLabel}>Privacy Policy</Text>
-                            <Ionicons name="open-outline" size={18} color={COLORS.neutral[500]} />
+                            <Ionicons name="open-outline" size={16} color={COLORS.neutral[400]} />
                         </PressableScale>
-                        <PressableScale style={[styles.row, styles.rowLast]} onPress={openLegalUrl}>
+                        <View style={styles.divider} />
+                        <PressableScale style={styles.row} onPress={openLegalUrl}>
                             <Text style={styles.rowLabel}>Terms of Service</Text>
-                            <Ionicons name="open-outline" size={18} color={COLORS.neutral[500]} />
+                            <Ionicons name="open-outline" size={16} color={COLORS.neutral[400]} />
                         </PressableScale>
                     </View>
                 </View>
@@ -198,10 +225,10 @@ export default function SettingsScreen() {
                 <View style={styles.deleteSection}>
                     <PressableScale style={styles.deleteRow} onPress={confirmDeleteAccount} disabled={busy !== 'none'}>
                         {busy === 'delete' ? (
-                            <ActivityIndicator color="#e0899a" />
+                            <ActivityIndicator size="small" color="#e0899a" />
                         ) : (
                             <>
-                                <Ionicons name="trash-outline" size={16} color="#e0899a" />
+                                <Ionicons name="trash-outline" size={15} color="#e0899a" />
                                 <Text style={styles.deleteLabel}>Delete account</Text>
                             </>
                         )}
@@ -216,3 +243,4 @@ export default function SettingsScreen() {
         </SafeAreaView>
     );
 }
+

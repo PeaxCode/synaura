@@ -46,5 +46,7 @@ CLAUDE.md
 .vscode
 .history
 
-# generated test audio (tools/audio/generate_stems.py)
-tools/audio/out/
+# generated test audio and tools
+tools/
+*.mp3
+*.html

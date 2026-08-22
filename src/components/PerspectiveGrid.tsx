@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
     Easing,
+    SharedValue,
     useAnimatedProps,
     useSharedValue,
     withRepeat,
@@ -13,7 +14,7 @@ import { COLORS } from '@/src/constants/theme';
 const RING_COUNT = 5;
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
-function TunnelRing({ index, size, time }: { index: number; size: number; time: Animated.SharedValue<number> }) {
+function TunnelRing({ index, size, time }: { index: number; size: number; time: SharedValue<number> }) {
     const animatedProps = useAnimatedProps(() => {
         // p goes from 0 to 1. As time increases, rings move forward.
         // We subtract time so the rings grow larger (p moves from 0 to 1).
@@ -58,15 +59,16 @@ export default function PerspectiveGrid({ size, isPlaying }: { size: number; isP
     useEffect(() => {
         // Animate time continuously from 0 to 1.
         if (isPlaying) {
+            // Slightly faster, rhythmic forward motion during active playback
             time.value = withRepeat(
-                withTiming(1, { duration: 8000, easing: Easing.linear }),
+                withTiming(1, { duration: 5200, easing: Easing.linear }),
                 -1,
                 false
             );
         } else {
-            // When paused, slow down to a gentle drift instead of stopping completely
+            // Calming, slow ambient drift when paused
             time.value = withRepeat(
-                withTiming(1, { duration: 25000, easing: Easing.linear }),
+                withTiming(1, { duration: 26000, easing: Easing.linear }),
                 -1,
                 false
             );

@@ -7,11 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import createStyles from '@/src/assets/styles/library.styles';
 import AmbientBackground from '@/src/components/AmbientBackground';
 import PressableScale from '@/src/components/PressableScale';
+import TrackArtwork from '@/src/components/TrackArtwork';
 import { COLORS } from '@/src/constants/theme';
 import { Preset, RecentPlay, favoriteTrack, fetchFavoriteTrackIds, fetchPresets, fetchRecentPlays, unfavoriteTrack } from '@/src/data/library';
 import { isTrackOffline, removeTrackOffline } from '@/src/data/offline';
 import { Mode, Track } from '@/src/data/tracks';
 import { useAuthStore } from '@/src/store/authStore';
+import { useLibraryStore } from '@/src/store/libraryStore';
 import { useTracksStore } from '@/src/store/tracksStore';
 
 type LibraryTab = 'favorites' | 'tunes' | 'recent' | 'downloaded';
@@ -45,10 +47,14 @@ export default function LibraryScreen() {
     const userId = useAuthStore((state) => state.user?.id);
 
     const [tab, setTab] = useState<LibraryTab>('favorites');
-    const [isLoading, setIsLoading] = useState(true);
-    const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-    const [presets, setPresets] = useState<Preset[]>([]);
-    const [recentPlays, setRecentPlays] = useState<RecentPlay[]>([]);
+    const favoriteIds = useLibraryStore((state) => state.favoriteIds);
+    const presets = useLibraryStore((state) => state.presets);
+    const recentPlays = useLibraryStore((state) => state.recentPlays);
+    const isLoading = useLibraryStore((state) => state.isLoading);
+    const fetchLibrary = useLibraryStore((state) => state.fetchLibrary);
+    const setFavoriteIds = useLibraryStore((state) => state.setFavoriteIds);
+    const setPresets = useLibraryStore((state) => state.setPresets);
+
     // Tracks removed via the Downloads tab this session — isTrackOffline alone
     // can't reflect a delete until allTracks itself changes, so this filters
     // them out of the list immediately instead of waiting for a re-fetch.
@@ -73,21 +79,10 @@ export default function LibraryScreen() {
     useFocusEffect(
         useCallback(() => {
             useTracksStore.getState().ensureLoaded();
-            if (!userId) { setIsLoading(false); return; }
-
-            let cancelled = false;
-            Promise.all([fetchFavoriteTrackIds(userId), fetchPresets(userId), fetchRecentPlays(userId, 10)])
-                .then(([favoriteIdSet, presetRows, plays]) => {
-                    if (cancelled) return;
-                    setFavoriteIds(favoriteIdSet);
-                    setPresets(presetRows);
-                    setRecentPlays(plays);
-                })
-                .catch(() => { })
-                .finally(() => { if (!cancelled) setIsLoading(false); });
-
-            return () => { cancelled = true; };
-        }, [userId]),
+            if (userId) {
+                fetchLibrary(userId);
+            }
+        }, [userId, fetchLibrary]),
     );
 
     // Sends the user to start-session's duration step instead of replaying
@@ -181,14 +176,12 @@ export default function LibraryScreen() {
                             ) : (
                                 favoriteTracks.map((track) => (
                                     <PressableScale key={track.id} style={styles.card} onPress={() => handlePlayTrack(track)}>
-                                        <View style={styles.cardArt}>
-                                            {isTrackOffline(track) && (
-                                                <View style={styles.downloadedBadge}>
-                                                    <Ionicons name="checkmark-circle" size={12} color={COLORS.accent} />
-                                                    <Text style={styles.downloadedBadgeLabel}>Downloaded</Text>
-                                                </View>
-                                            )}
-                                        </View>
+                                        <TrackArtwork
+                                            category={track.category}
+                                            mode={track.mode}
+                                            isDownloaded={isTrackOffline(track)}
+                                            size="card"
+                                        />
                                         <View style={styles.cardBody}>
                                             <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
                                             <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
@@ -204,17 +197,24 @@ export default function LibraryScreen() {
                                     <Text style={styles.emptyText}>No custom tunes yet</Text>
                                 </View>
                             ) : (
-                                presets.map((preset) => (
-                                    <PressableScale key={preset.id} style={styles.card} onPress={() => handlePlayPreset(preset)}>
-                                        <View style={styles.cardArt} />
-                                        <View style={styles.cardBody}>
-                                            <Text style={styles.cardTitle} numberOfLines={1}>{preset.name ?? 'Untitled'}</Text>
-                                            <Text style={styles.cardSubtitle}>
-                                                {`Custom · ${MODE_LABEL[preset.mode]} · ${formatDurationLabel(preset.durationMinutes)}`}
-                                            </Text>
-                                        </View>
-                                    </PressableScale>
-                                ))
+                                presets.map((preset) => {
+                                    const track = allTracks.find((t) => t.id === preset.trackId);
+                                    return (
+                                        <PressableScale key={preset.id} style={styles.card} onPress={() => handlePlayPreset(preset)}>
+                                            <TrackArtwork
+                                                category={track?.category}
+                                                mode={preset.mode}
+                                                size="card"
+                                            />
+                                            <View style={styles.cardBody}>
+                                                <Text style={styles.cardTitle} numberOfLines={1}>{preset.name ?? 'Untitled'}</Text>
+                                                <Text style={styles.cardSubtitle}>
+                                                    {`Custom · ${MODE_LABEL[preset.mode]} · ${formatDurationLabel(preset.durationMinutes)}`}
+                                                </Text>
+                                            </View>
+                                        </PressableScale>
+                                    );
+                                })
                             )
                         )}
 
@@ -232,7 +232,11 @@ export default function LibraryScreen() {
                                             <View key={track.id} style={isMenuOpen ? { zIndex: 20 } : undefined}>
                                                 <View style={styles.listRow}>
                                                     <PressableScale style={styles.listRowBody} onPress={() => handlePlayTrack(track)}>
-                                                        <View style={styles.listRowArt} />
+                                                        <TrackArtwork
+                                                            category={track.category}
+                                                            mode={track.mode}
+                                                            size="thumb"
+                                                        />
                                                         <View style={styles.listRowText}>
                                                             <Text style={styles.cardTitle} numberOfLines={1}>{track.name}</Text>
                                                             <Text style={styles.cardSubtitle}>{MODE_LABEL[track.mode]}</Text>
@@ -287,22 +291,29 @@ export default function LibraryScreen() {
                                 </View>
                             ) : (
                                 <View style={styles.listContainer}>
-                                    {recentPlays.map((play, i) => (
-                                        <View key={i}>
-                                            <View style={styles.listRow}>
-                                                <PressableScale style={styles.listRowBody} onPress={() => handlePlayRecent(play)}>
-                                                    <View style={styles.listRowArt} />
-                                                    <View style={styles.listRowText}>
-                                                        <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
-                                                        <Text style={styles.cardSubtitle}>
-                                                            {`${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
-                                                        </Text>
-                                                    </View>
-                                                </PressableScale>
+                                    {recentPlays.map((play, i) => {
+                                        const track = allTracks.find((t) => t.id === play.trackId);
+                                        return (
+                                            <View key={i}>
+                                                <View style={styles.listRow}>
+                                                    <PressableScale style={styles.listRowBody} onPress={() => handlePlayRecent(play)}>
+                                                        <TrackArtwork
+                                                            category={track?.category}
+                                                            mode={play.mode}
+                                                            size="thumb"
+                                                        />
+                                                        <View style={styles.listRowText}>
+                                                            <Text style={styles.cardTitle} numberOfLines={1}>{play.name ?? 'Untitled'}</Text>
+                                                            <Text style={styles.cardSubtitle}>
+                                                                {`${MODE_LABEL[play.mode]} · ${formatPlayedMinutes(play.durationSeconds)} min`}
+                                                            </Text>
+                                                        </View>
+                                                    </PressableScale>
+                                                </View>
+                                                {i !== recentPlays.length - 1 && <View style={styles.listDivider} />}
                                             </View>
-                                            {i !== recentPlays.length - 1 && <View style={styles.listDivider} />}
-                                        </View>
-                                    ))}
+                                        );
+                                    })}
                                 </View>
                             )
                         )}

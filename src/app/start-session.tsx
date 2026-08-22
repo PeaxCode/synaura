@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ComponentProps, useEffect, useState } from 'react';
@@ -8,16 +9,21 @@ import createStyles from '@/src/assets/styles/start-session.styles';
 import AxisPad from '@/src/components/AxisPad';
 import ModalSheet from '@/src/components/ModalSheet';
 import PressableScale from '@/src/components/PressableScale';
+import TrackArtwork from '@/src/components/TrackArtwork';
 import TrackGrid from '@/src/components/TrackGrid';
+import { ACTIVITIES, ActivitySlug } from '@/src/data/activities';
+import { LAST_SESSION_DURATION_KEY } from '@/src/constants/storage';
 import { COLORS } from '@/src/constants/theme';
 import { fetchPresetById } from '@/src/data/library';
-import { AxisValues, Category, Track, fetchTrackById } from '@/src/data/tracks';
+import { AxisValues, Category, Mode, Track, fetchTrackById } from '@/src/data/tracks';
 import { useTrackPreview } from '@/src/hooks/useTrackPreview';
 import { usePlaybackStore } from '@/src/store/playbackStore';
 import { useTracksStore } from '@/src/store/tracksStore';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 type Step = 'track' | 'duration' | 'tune';
+type TimerType = 'continuous' | 'cycles';
+type CycleRhythm = 'classic' | 'deep';
 
 const CATEGORY_ICONS: Record<Category, IoniconName> = {
     nature: 'leaf-outline',
@@ -27,15 +33,33 @@ const CATEGORY_ICONS: Record<Category, IoniconName> = {
 };
 
 const DURATIONS: { value: string; unit: string; minutes: number | null }[] = [
-    { value: '5', unit: 'min', minutes: 5 },
-    { value: '15', unit: 'min', minutes: 15 },
-    { value: '30', unit: 'min', minutes: 30 },
+    { value: '10', unit: 'min', minutes: 10 },
+    { value: '25', unit: 'min', minutes: 25 },
     { value: '45', unit: 'min', minutes: 45 },
     { value: '60', unit: 'min', minutes: 60 },
+    { value: '90', unit: 'min', minutes: 90 },
     { value: '∞', unit: 'No limit', minutes: null },
 ];
 
 const DURATION_ROWS = [DURATIONS.slice(0, 2), DURATIONS.slice(2, 4), DURATIONS.slice(4, 6)];
+
+const CLASSIC_CYCLES: { value: string; unit: string; minutes: number | null }[] = [
+    { value: '2', unit: 'Cycles · 1h', minutes: 60 },
+    { value: '3', unit: 'Cycles · 1.5h', minutes: 90 },
+    { value: '4', unit: 'Cycles · 2h', minutes: 120 },
+    { value: '∞', unit: 'Endless Flow', minutes: null },
+];
+
+const CLASSIC_ROWS = [CLASSIC_CYCLES.slice(0, 2), CLASSIC_CYCLES.slice(2, 4)];
+
+const DEEP_CYCLES: { value: string; unit: string; minutes: number | null }[] = [
+    { value: '1', unit: 'Deep · 1h', minutes: 60 },
+    { value: '2', unit: 'Deep · 2h', minutes: 120 },
+    { value: '3', unit: 'Deep · 3h', minutes: 180 },
+    { value: '∞', unit: 'Endless Flow', minutes: null },
+];
+
+const DEEP_ROWS = [DEEP_CYCLES.slice(0, 2), DEEP_CYCLES.slice(2, 4)];
 
 const PAD_SIZE_MAX = 260;
 
@@ -43,12 +67,22 @@ const PAD_SIZE_MAX = 260;
 export default function StartSessionScreen() {
     const styles = createStyles(COLORS);
     const { width } = useWindowDimensions();
-    const params = useLocalSearchParams<{ presetId?: string; trackId?: string }>();
+    const params = useLocalSearchParams<{ presetId?: string; trackId?: string; mode?: string; axisX?: string; axisY?: string; activity?: string }>();
     const [step, setStep] = useState<Step>(params.presetId || params.trackId ? 'duration' : 'track');
+    const [timerType, setTimerType] = useState<TimerType>('continuous');
+    const [cycleRhythm, setCycleRhythm] = useState<CycleRhythm>('classic');
+    const currentActivity = ACTIVITIES.find((a) => a.slug === params.activity);
+
+    // Set when arriving from a Home "Quick Start" activity card — suggests a
+    // starting pad position for whichever track gets picked, instead of
+    // skipping the pad (which would collapse into a fixed-category picker).
+    const initialMode: Mode = params.mode === 'relax' ? 'relax' : 'focus';
+    const suggestedAxis: AxisValues | null =
+        params.axisX && params.axisY ? { x: parseFloat(params.axisX), y: parseFloat(params.axisY) } : null;
     const tracks = useTracksStore((state) => state.tracks);
     const isLoadingTracks = useTracksStore((state) => state.isLoading);
     const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-    const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
+    const [selectedMinutes, setSelectedMinutes] = useState<number | null>(25);
     const [resumePresetId, setResumePresetId] = useState<string | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [axisValues, setAxisValues] = useState<AxisValues>({ x: 0.5, y: 0.5 });
@@ -57,7 +91,16 @@ export default function StartSessionScreen() {
 
     useEffect(() => {
         useTracksStore.getState().ensureLoaded();
+        // Load smart default for session duration
+        if (!params.presetId) {
+            AsyncStorage.getItem(LAST_SESSION_DURATION_KEY).then((stored) => {
+                if (stored !== null) {
+                    setSelectedMinutes(stored === 'null' ? null : parseInt(stored, 10));
+                }
+            }).catch(() => { });
+        }
     }, []);
+
 
     // Replaying anything opened from Library (a saved tune, or a plain track
     // from Favorites/Downloads/Recent) — skip track selection, land straight
@@ -94,9 +137,10 @@ export default function StartSessionScreen() {
     const padSize = Math.min(PAD_SIZE_MAX, width - 56 - 44);
 
     function handleSelectTrack(track: Track) {
+        const startingAxis = suggestedAxis ?? track.defaultAxisValues;
         setSelectedTrack(track);
-        setAxisValues(track.defaultAxisValues);
-        padPosition.value = track.defaultAxisValues;
+        setAxisValues(startingAxis);
+        padPosition.value = startingAxis;
         play(track);
         setStep('duration');
     }
@@ -114,27 +158,25 @@ export default function StartSessionScreen() {
         if (!selectedTrack || isStarting) return;
         stop();
         setIsStarting(true);
+        // Persist smart default
+        AsyncStorage.setItem(LAST_SESSION_DURATION_KEY, String(selectedMinutes ?? 'null')).catch(() => { });
+
         const store = usePlaybackStore.getState();
-        // playTrack sets currentTrack synchronously (before its own first
-        // await) — call it before navigating so Player's mount guard (which
-        // redirects away if currentTrack is still null) never fires. Then
-        // navigate immediately rather than waiting for the rest of
-        // playTrack — fetch+decode of a real, full-length track can take
-        // several seconds, and sitting on this button the whole time read
-        // as stuck.
         const playing = store.playTrack(selectedTrack, axisValues, resumePresetId ?? undefined);
         router.replace('/player');
         // setSessionMinutes must run after playback is active so it can read isPlaying to start the timer.
         await playing;
-        store.setSessionMinutes(selectedMinutes);
+        store.setSessionMinutes(selectedMinutes, timerType, cycleRhythm);
     }
 
     const trackSummaryContent = selectedTrack && (
         <>
-            <View style={styles.selectedTrackIcon}>
-                <Ionicons name={CATEGORY_ICONS[selectedTrack.category]} size={18} color={COLORS.accent} />
-            </View>
-            <View>
+            <TrackArtwork
+                category={selectedTrack.category}
+                mode={selectedTrack.mode}
+                size="thumb"
+            />
+            <View style={{ gap: 2 }}>
                 <Text style={styles.selectedTrackTitle}>{selectedTrack.name}</Text>
                 <Text style={styles.selectedTrackMeta}>{selectedTrack.mode === 'relax' ? 'Relax' : 'Focus'}</Text>
             </View>
@@ -163,6 +205,7 @@ export default function StartSessionScreen() {
                                     activeSlug={playingSlug}
                                     loadingSlug={loadingSlug}
                                     onSelect={handleSelectTrack}
+                                    initialMode={initialMode}
                                 />
                             )}
                         </ScrollView>
@@ -177,9 +220,76 @@ export default function StartSessionScreen() {
                                 {trackSummaryContent}
                             </PressableScale>
 
-                            <Text style={styles.sectionLabel}>SESSION LENGTH</Text>
+                            {/* TIMER TYPE TOGGLE — Continuous vs Flow Cycles */}
+                            <View style={styles.timerTypeToggle}>
+                                <PressableScale
+                                    style={[styles.timerTypeButton, timerType === 'continuous' && styles.timerTypeButtonActive]}
+                                    onPress={() => {
+                                        setTimerType('continuous');
+                                        if (selectedMinutes === null || selectedMinutes % 5 !== 0) setSelectedMinutes(25);
+                                    }}
+                                >
+                                    <Text style={[styles.timerTypeButtonLabel, timerType === 'continuous' && styles.timerTypeButtonLabelActive]}>
+                                        Continuous Timer
+                                    </Text>
+                                </PressableScale>
+                                <PressableScale
+                                    style={[styles.timerTypeButton, timerType === 'cycles' && styles.timerTypeButtonActive]}
+                                    onPress={() => {
+                                        setTimerType('cycles');
+                                        if (selectedMinutes === null || selectedMinutes < 60) setSelectedMinutes(60);
+                                    }}
+                                >
+                                    <Text style={[styles.timerTypeButtonLabel, timerType === 'cycles' && styles.timerTypeButtonLabelActive]}>
+                                        Flow Cycles
+                                    </Text>
+                                </PressableScale>
+                            </View>
+
+                            {/* SUB-RHYTHM SWITCHER (When in Flow Cycles) */}
+                            {timerType === 'cycles' && (
+                                <View style={styles.rhythmRow}>
+                                    <PressableScale
+                                        style={[styles.rhythmChip, cycleRhythm === 'classic' && styles.rhythmChipActive]}
+                                        onPress={() => {
+                                            setCycleRhythm('classic');
+                                            setSelectedMinutes(60);
+                                        }}
+                                    >
+                                        <Ionicons name="timer-outline" size={13} color={cycleRhythm === 'classic' ? COLORS.accent : COLORS.neutral[400]} />
+                                        <Text style={[styles.rhythmChipText, cycleRhythm === 'classic' && styles.rhythmChipTextActive]}>
+                                            Classic (25/5m)
+                                        </Text>
+                                    </PressableScale>
+
+                                    <PressableScale
+                                        style={[styles.rhythmChip, cycleRhythm === 'deep' && styles.rhythmChipActive]}
+                                        onPress={() => {
+                                            setCycleRhythm('deep');
+                                            setSelectedMinutes(60);
+                                        }}
+                                    >
+                                        <Ionicons name="flash-outline" size={13} color={cycleRhythm === 'deep' ? COLORS.accent : COLORS.neutral[400]} />
+                                        <Text style={[styles.rhythmChipText, cycleRhythm === 'deep' && styles.rhythmChipTextActive]}>
+                                            Deep Work (50/10m)
+                                        </Text>
+                                    </PressableScale>
+                                </View>
+                            )}
+
+                            <Text style={styles.sectionLabel}>
+                                {timerType === 'continuous'
+                                    ? 'SESSION LENGTH'
+                                    : cycleRhythm === 'classic'
+                                    ? 'CLASSIC SPRINTS (25M FOCUS / 5M REST)'
+                                    : 'DEEP WORK BLOCKS (50M FOCUS / 10M REST)'}
+                            </Text>
+
                             <View style={styles.durationGrid}>
-                                {DURATION_ROWS.map((row, rowIndex) => (
+                                {(timerType === 'continuous'
+                                    ? DURATION_ROWS
+                                    : (cycleRhythm === 'classic' ? CLASSIC_ROWS : DEEP_ROWS)
+                                ).map((row, rowIndex) => (
                                     <View key={rowIndex} style={styles.durationGridRow}>
                                         {row.map((duration) => {
                                             const isActive = selectedMinutes === duration.minutes;

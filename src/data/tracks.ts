@@ -37,6 +37,66 @@ export const MODES: { slug: Mode; label: string }[] = [
     { slug: 'relax', label: 'Relax' },
 ];
 
+export interface TrackMetadata {
+    tagline: string;
+    description: string;
+    activityHint: 'deep_focus' | 'light_focus' | 'unwind';
+}
+
+export const TRACK_DESCRIPTIONS: Record<string, TrackMetadata> = {
+    'morning-birdsong': {
+        tagline: 'Fresh woodland ambiance with light harmonic warmth',
+        description: 'Gentle morning energy and mental clarity',
+        activityHint: 'light_focus',
+    },
+    'evening-strings': {
+        tagline: 'Gentle acoustic resonance and slow-breathing strings',
+        description: 'Designed for easing tension and mental quiet',
+        activityHint: 'unwind',
+    },
+    'steady-current': {
+        tagline: 'High-clarity binaural flow for deep analytical work',
+        description: 'Maintains steady neural rhythm without distraction',
+        activityHint: 'deep_focus',
+    },
+    'slow-tape': {
+        tagline: 'Warm analog flutter and textured chill atmosphere',
+        description: 'Relaxed ambient texture for calm evenings',
+        activityHint: 'unwind',
+    },
+    'deep-forest': {
+        tagline: 'Immersive biome sounds and subterranean bass hum',
+        description: 'Grounds your attention during intense work',
+        activityHint: 'deep_focus',
+    },
+    'warm-rain': {
+        tagline: 'Soothing rainfall and filtered atmospheric pads',
+        description: 'Washes away background mental clutter',
+        activityHint: 'unwind',
+    },
+    'lofi-study': {
+        tagline: 'Subtle rhythmic swing with soft vintage piano',
+        description: 'Optimized for writing, reading, and light work',
+        activityHint: 'light_focus',
+    },
+    'lofi-dust': {
+        tagline: 'Vinyl crackle, mellow bass, and airy chord sweeps',
+        description: 'Peaceful ambient soundscape for resting',
+        activityHint: 'unwind',
+    },
+    'steady-focus': {
+        tagline: 'Pure pulse modulation for flow-state immersion',
+        description: 'Locks in deep focus for uninterrupted creation',
+        activityHint: 'deep_focus',
+    },
+    'sunset-guitar': {
+        tagline: 'Organic fingerpicked chords and golden-hour warmth',
+        description: 'Calms the nervous system after a long day',
+        activityHint: 'unwind',
+    },
+};
+
+
 interface TrackRow {
     id: string;
     slug: string;
