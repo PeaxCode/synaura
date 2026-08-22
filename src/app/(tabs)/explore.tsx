@@ -11,9 +11,10 @@ import { Track } from '@/src/data/tracks';
 import { useTrackPreview } from '@/src/hooks/useTrackPreview';
 import { useTracksStore } from '@/src/store/tracksStore';
 
+const styles = createStyles(COLORS);
+
 // Renders a browse-only catalog where tapping a track plays a local preview, decoupled from the app-wide session player.
 export default function ExploreScreen() {
-    const styles = createStyles(COLORS);
     const tracks = useTracksStore((state) => state.tracks);
     const isLoadingTracks = useTracksStore((state) => state.isLoading);
     const loadError = useTracksStore((state) => state.error);

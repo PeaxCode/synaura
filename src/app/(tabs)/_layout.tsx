@@ -19,9 +19,10 @@ const TAB_META: Record<string, { icon: IoniconName; iconFilled: IoniconName; lab
     settings: { icon: 'settings-outline', iconFilled: 'settings', label: 'Settings' },
 };
 
+const styles = createStyles(COLORS);
+
 // Renders a persistent mini-player above the tab bar when a session is active, serving as a quick status and stop control.
 function NowPlayingBar() {
-    const styles = createStyles(COLORS);
     const currentTrack = usePlaybackStore((state) => state.currentTrack);
     const isPlaying = usePlaybackStore((state) => state.isPlaying);
     const isLoading = usePlaybackStore((state) => state.isLoading);
@@ -51,7 +52,6 @@ function NowPlayingBar() {
 }
 
 function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-    const styles = createStyles(COLORS);
     const insets = useSafeAreaInsets();
 
     // Hides the tab bar on routes that render full-screen like edit-profile.

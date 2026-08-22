@@ -10,6 +10,7 @@ import { ONBOARDING_SEEN_KEY } from '@/src/constants/storage';
 import { COLORS } from '@/src/constants/theme';
 import { supabase } from '@/src/data/client';
 
+const styles = createStyles(COLORS);
 const MIN_SPLASH_MS = 700;
 
 async function loadInitialRoute(): Promise<Href> {
@@ -22,8 +23,6 @@ async function loadInitialRoute(): Promise<Href> {
 }
 
 export default function SplashScreen() {
-    const styles = createStyles(COLORS);
-
     useEffect(() => {
         let cancelled = false;
 
@@ -41,7 +40,7 @@ export default function SplashScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            <AmbientBackground showLines={false} />
+            <AmbientBackground />
 
             <View style={styles.center}>
                 <LogoMark pulse />

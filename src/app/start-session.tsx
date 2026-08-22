@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, useSharedValue } from 'react-native-reanimated';
 import createStyles from '@/src/assets/styles/start-session.styles';
@@ -62,36 +62,39 @@ const DEEP_CYCLES: { value: string; unit: string; minutes: number | null }[] = [
 const DEEP_ROWS = [DEEP_CYCLES.slice(0, 2), DEEP_CYCLES.slice(2, 4)];
 
 const PAD_SIZE_MAX = 260;
+const styles = createStyles(COLORS);
 
 // Orchestrates the session creation flow: picking a track, setting a duration, and optionally tuning the mix before starting.
 export default function StartSessionScreen() {
-    const styles = createStyles(COLORS);
     const { width } = useWindowDimensions();
     const params = useLocalSearchParams<{ presetId?: string; trackId?: string; mode?: string; axisX?: string; axisY?: string; activity?: string }>();
+
+    // 1. State & Hooks
     const [step, setStep] = useState<Step>(params.presetId || params.trackId ? 'duration' : 'track');
     const [timerType, setTimerType] = useState<TimerType>('continuous');
     const [cycleRhythm, setCycleRhythm] = useState<CycleRhythm>('classic');
-    const currentActivity = ACTIVITIES.find((a) => a.slug === params.activity);
-
-    // Set when arriving from a Home "Quick Start" activity card — suggests a
-    // starting pad position for whichever track gets picked, instead of
-    // skipping the pad (which would collapse into a fixed-category picker).
-    const initialMode: Mode = params.mode === 'relax' ? 'relax' : 'focus';
-    const suggestedAxis: AxisValues | null =
-        params.axisX && params.axisY ? { x: parseFloat(params.axisX), y: parseFloat(params.axisY) } : null;
-    const tracks = useTracksStore((state) => state.tracks);
-    const isLoadingTracks = useTracksStore((state) => state.isLoading);
     const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
     const [selectedMinutes, setSelectedMinutes] = useState<number | null>(25);
     const [resumePresetId, setResumePresetId] = useState<string | null>(null);
     const [isStarting, setIsStarting] = useState(false);
-    const [axisValues, setAxisValues] = useState<AxisValues>({ x: 0.5, y: 0.5 });
-    const padPosition = useSharedValue<AxisValues>({ x: 0.5, y: 0.5 });
+
+    const tracks = useTracksStore((state) => state.tracks);
+    const isLoadingTracks = useTracksStore((state) => state.isLoading);
     const { playingSlug, loadingSlug, play, stop, updateAxis } = useTrackPreview();
 
+    const axisValuesRef = useRef<AxisValues>({ x: 0.5, y: 0.5 });
+    const padPosition = useSharedValue<AxisValues>({ x: 0.5, y: 0.5 });
+
+    // 2. Derived & Computed State
+    const currentActivity = ACTIVITIES.find((a) => a.slug === params.activity);
+    const initialMode: Mode = params.mode === 'relax' ? 'relax' : 'focus';
+    const suggestedAxis: AxisValues | null =
+        params.axisX && params.axisY ? { x: parseFloat(params.axisX), y: parseFloat(params.axisY) } : null;
+    const padSize = Math.min(PAD_SIZE_MAX, width - 56 - 44);
+
+    // 3. Effects & Lifecycles
     useEffect(() => {
         useTracksStore.getState().ensureLoaded();
-        // Load smart default for session duration
         if (!params.presetId) {
             AsyncStorage.getItem(LAST_SESSION_DURATION_KEY).then((stored) => {
                 if (stored !== null) {
@@ -101,11 +104,6 @@ export default function StartSessionScreen() {
         }
     }, []);
 
-
-    // Replaying anything opened from Library (a saved tune, or a plain track
-    // from Favorites/Downloads/Recent) — skip track selection, land straight
-    // on "Session length" so a duration always has to be (re)confirmed
-    // instead of silently reusing/defaulting one for this particular replay.
     useEffect(() => {
         if (!params.presetId && !params.trackId) return;
         let cancelled = false;
@@ -117,7 +115,7 @@ export default function StartSessionScreen() {
                 const track = await fetchTrackById(preset.trackId);
                 if (cancelled || !track) return;
                 setSelectedTrack(track);
-                setAxisValues(preset.axisValues);
+                axisValuesRef.current = preset.axisValues;
                 padPosition.value = preset.axisValues;
                 setSelectedMinutes(preset.durationMinutes);
                 setResumePresetId(preset.id);
@@ -125,7 +123,7 @@ export default function StartSessionScreen() {
                 const track = await fetchTrackById(params.trackId);
                 if (cancelled || !track) return;
                 setSelectedTrack(track);
-                setAxisValues(track.defaultAxisValues);
+                axisValuesRef.current = track.defaultAxisValues;
                 padPosition.value = track.defaultAxisValues;
             }
         }
@@ -134,19 +132,18 @@ export default function StartSessionScreen() {
         return () => { cancelled = true; };
     }, [params.presetId, params.trackId]);
 
-    const padSize = Math.min(PAD_SIZE_MAX, width - 56 - 44);
-
+    // 4. Action Handlers
     function handleSelectTrack(track: Track) {
         const startingAxis = suggestedAxis ?? track.defaultAxisValues;
         setSelectedTrack(track);
-        setAxisValues(startingAxis);
+        axisValuesRef.current = startingAxis;
         padPosition.value = startingAxis;
         play(track);
         setStep('duration');
     }
 
     function handlePadPosition(x: number, y: number) {
-        setAxisValues({ x, y });
+        axisValuesRef.current = { x, y };
         updateAxis(x, y);
     }
 
@@ -158,17 +155,16 @@ export default function StartSessionScreen() {
         if (!selectedTrack || isStarting) return;
         stop();
         setIsStarting(true);
-        // Persist smart default
         AsyncStorage.setItem(LAST_SESSION_DURATION_KEY, String(selectedMinutes ?? 'null')).catch(() => { });
 
         const store = usePlaybackStore.getState();
-        const playing = store.playTrack(selectedTrack, axisValues, resumePresetId ?? undefined);
+        const playing = store.playTrack(selectedTrack, axisValuesRef.current, resumePresetId ?? undefined);
         router.replace('/player');
-        // setSessionMinutes must run after playback is active so it can read isPlaying to start the timer.
         await playing;
         store.setSessionMinutes(selectedMinutes, timerType, cycleRhythm);
     }
 
+    // 5. Shared JSX Element
     const trackSummaryContent = selectedTrack && (
         <>
             <TrackArtwork
@@ -183,6 +179,7 @@ export default function StartSessionScreen() {
         </>
     );
 
+    // 6. JSX Render
     return (
         <ModalSheet>
             <StatusBar style="light" />

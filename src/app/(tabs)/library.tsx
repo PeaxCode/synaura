@@ -16,6 +16,8 @@ import { useAuthStore } from '@/src/store/authStore';
 import { useLibraryStore } from '@/src/store/libraryStore';
 import { useTracksStore } from '@/src/store/tracksStore';
 
+const styles = createStyles(COLORS);
+
 type LibraryTab = 'favorites' | 'tunes' | 'recent' | 'downloaded';
 
 const TABS: { slug: LibraryTab; label: string }[] = [
@@ -42,7 +44,6 @@ function formatPlayedMinutes(durationSeconds: number) {
 
 // Tabbed screen for managing favorite tracks, custom saved presets, and recent play history.
 export default function LibraryScreen() {
-    const styles = createStyles(COLORS);
     const params = useLocalSearchParams<{ tab?: string }>();
     const userId = useAuthStore((state) => state.user?.id);
 
@@ -55,27 +56,20 @@ export default function LibraryScreen() {
     const setFavoriteIds = useLibraryStore((state) => state.setFavoriteIds);
     const setPresets = useLibraryStore((state) => state.setPresets);
 
-    // Tracks removed via the Downloads tab this session — isTrackOffline alone
-    // can't reflect a delete until allTracks itself changes, so this filters
-    // them out of the list immediately instead of waiting for a re-fetch.
+    // Tracks removed locally during active session
     const [removedDownloadIds, setRemovedDownloadIds] = useState<Set<string>>(new Set());
     const [openMenuTrackId, setOpenMenuTrackId] = useState<string | null>(null);
 
-    // Tracks come from the shared cache (warmed at app launch) instead of a
-    // per-focus fetch — only favorites/presets/recent are user-specific and
-    // need refreshing every time this tab regains focus.
     const allTracks = useTracksStore((state) => state.tracks);
     const favoriteTracks = allTracks.filter((track) => favoriteIds.has(track.id));
-    // isTrackOffline is a synchronous filesystem check (src/data/offline.ts) —
-    // recomputed on every render instead of cached, so it can never go stale.
     const downloadedTracks = allTracks.filter((track) => isTrackOffline(track) && !removedDownloadIds.has(track.id));
 
-    // Switches to the specified tab if linked externally (e.g., from the Home screen's Recent section).
+    // Switches to the specified tab if linked externally (e.g. from Home)
     useEffect(() => {
         if (isLibraryTab(params.tab)) setTab(params.tab);
     }, [params.tab]);
 
-    // Re-fetches library data on every tab focus to stay in sync with changes made while the Player was open.
+    // Re-fetches library data on tab focus
     useFocusEffect(
         useCallback(() => {
             useTracksStore.getState().ensureLoaded();
@@ -85,23 +79,15 @@ export default function LibraryScreen() {
         }, [userId, fetchLibrary]),
     );
 
-    // Sends the user to start-session's duration step instead of replaying
-    // immediately — every tune opened from Library (favorite, download, or
-    // recent) asks for a session length instead of silently defaulting one.
+    // Opens session setup to choose duration before playback
     function handlePlayTrack(track: Track) {
         router.push({ pathname: '/start-session', params: { trackId: track.id } });
     }
 
-    // Sends the user to start-session's duration step instead of replaying
-    // immediately — otherwise the tune's saved duration gets silently
-    // reapplied with no way to change it for this particular replay.
     function handlePlayPreset(preset: Preset) {
         router.push({ pathname: '/start-session', params: { presetId: preset.id } });
     }
 
-    // Same duration-ask treatment as favorites/tunes — resolving which
-    // preset/track a recent play maps to happens in start-session itself,
-    // this just forwards whichever id it logged.
     function handlePlayRecent(play: RecentPlay) {
         if (play.presetId) {
             router.push({ pathname: '/start-session', params: { presetId: play.presetId } });
@@ -110,8 +96,7 @@ export default function LibraryScreen() {
         }
     }
 
-    // No confirmation dialog — same immediate-delete behavior as the Player's
-    // download toggle (src/app/player.tsx handleToggleOffline).
+    // Removes offline stem files
     function handleRemoveDownload(track: Track) {
         removeTrackOffline(track.id);
         setRemovedDownloadIds((prev) => new Set(prev).add(track.id));

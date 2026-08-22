@@ -15,6 +15,8 @@ import { COLORS } from '@/src/constants/theme';
 import { deleteAccount, linkGoogleAccount } from '@/src/data/auth';
 import { supabase } from '@/src/data/client';
 
+const styles = createStyles(COLORS);
+
 type Busy = 'none' | 'google' | 'delete';
 
 // Placeholder destination for both — swap for dedicated pages once they exist.
@@ -25,7 +27,6 @@ function openLegalUrl() {
 }
 
 export default function SettingsScreen() {
-    const styles = createStyles(COLORS);
     const [user, setUser] = useState<User | null>(null);
     const [identities, setIdentities] = useState<UserIdentity[]>([]);
     const [busy, setBusy] = useState<Busy>('none');

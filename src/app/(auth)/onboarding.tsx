@@ -50,6 +50,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+const styles = createStyles(COLORS);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
@@ -468,7 +469,6 @@ function SoundWave({ variant, width, height }: SoundWaveProps) {
 }
 
 export default function OnboardingScreen() {
-    const styles = createStyles(COLORS);
     const { width, height } = useWindowDimensions();
 
     const [step, setStep] = useState(0);

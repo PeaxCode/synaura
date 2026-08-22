@@ -11,10 +11,10 @@ import { COLORS } from '@/src/constants/theme';
 import { updateFullName } from '@/src/data/auth';
 import { supabase } from '@/src/data/client';
 
-export default function EditProfileScreen() {
-    const styles = createStyles(COLORS);
-    const auth = createAuthStyles(COLORS);
+const styles = createStyles(COLORS);
+const auth = createAuthStyles(COLORS);
 
+export default function EditProfileScreen() {
     const [fullName, setFullName] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -23,14 +23,15 @@ function formatRemaining(ms: number) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+const styles = createStyles(COLORS);
+
 export default function PlayerScreen() {
-    const styles = createStyles(COLORS);
+    // 1. Hooks & State
     const [now, setNow] = useState(Date.now());
     const [isFavorited, setIsFavorited] = useState(false);
     const [isFavoriteBusy, setIsFavoriteBusy] = useState(false);
     const [savedPresetId, setSavedPresetId] = useState<string | null>(null);
     const [isSaveBusy, setIsSaveBusy] = useState(false);
-    const isSaved = savedPresetId !== null;
     const [isOffline, setIsOffline] = useState(false);
     const [isOfflineBusy, setIsOfflineBusy] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
@@ -52,51 +53,12 @@ export default function PlayerScreen() {
     const resume = usePlaybackStore((state) => state.resume);
     const adjustSessionTime = usePlaybackStore((state) => state.adjustSessionTime);
 
-    useEffect(() => {
-        if (currentTrack) return;
-        if (router.canGoBack()) router.back();
-        else router.replace('/(tabs)');
-    }, [currentTrack]);
-
-    useEffect(() => {
-        if (!isPlaying && !sessionEndAt) return;
-        const interval = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(interval);
-    }, [isPlaying, sessionEndAt]);
-
-    // Resets per-session UI state and checks if the current track is already favorited or saved.
-    useEffect(() => {
-        setSavedPresetId(null);
-        setIsFavorited(false);
-        if (!userId || !currentTrack) return;
-
-        let cancelled = false;
-        Promise.all([fetchFavoriteTrackIds(userId), findPresetByTrack(userId, currentTrack.id)])
-            .then(([ids, preset]) => {
-                if (cancelled) return;
-                setIsFavorited(ids.has(currentTrack.id));
-                setSavedPresetId(preset?.id ?? null);
-            })
-            .catch(() => { });
-        return () => { cancelled = true; };
-    }, [userId, currentTrack?.id]);
-
-    // Local-file checks are synchronous (see src/data/offline.ts), so this just
-    // re-reads state whenever the current track changes.
-    useEffect(() => {
-        setIsOffline(currentTrack ? isTrackOffline(currentTrack) : false);
-    }, [currentTrack?.id]);
-
-    if (!currentTrack)
-        return null;
-
+    // 2. Derived & Computed State
+    const isSaved = savedPresetId !== null;
     const isCycles = sessionMode === 'cycles';
     const totalMs = sessionMinutes !== null ? sessionMinutes * 60 * 1000 : null;
     const remainingMs = sessionEndAt ? Math.max(0, sessionEndAt - now) : pausedRemainingMs;
 
-    // Cycle Calculations:
-    // Classic = 25m Focus + 5m Rest = 30m total
-    // Deep = 50m Focus + 10m Rest = 60m total
     const isDeepRhythm = cycleRhythm === 'deep';
     const FOCUS_MINUTES = isDeepRhythm ? 50 : 25;
     const REST_MINUTES = isDeepRhythm ? 10 : 5;
@@ -143,6 +105,40 @@ export default function PlayerScreen() {
         ? Math.min(1, Math.max(0, 1 - remainingMs / totalMs))
         : null;
 
+    // 3. Effects & Lifecycles
+    useEffect(() => {
+        if (currentTrack) return;
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)');
+    }, [currentTrack]);
+
+    useEffect(() => {
+        if (!isPlaying && !sessionEndAt) return;
+        const interval = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, [isPlaying, sessionEndAt]);
+
+    useEffect(() => {
+        setSavedPresetId(null);
+        setIsFavorited(false);
+        if (!userId || !currentTrack) return;
+
+        let cancelled = false;
+        Promise.all([fetchFavoriteTrackIds(userId), findPresetByTrack(userId, currentTrack.id)])
+            .then(([ids, preset]) => {
+                if (cancelled) return;
+                setIsFavorited(ids.has(currentTrack.id));
+                setSavedPresetId(preset?.id ?? null);
+            })
+            .catch(() => { });
+        return () => { cancelled = true; };
+    }, [userId, currentTrack?.id]);
+
+    useEffect(() => {
+        setIsOffline(currentTrack ? isTrackOffline(currentTrack) : false);
+    }, [currentTrack?.id]);
+
+    // 4. Action Handlers
     function handlePlayPause() {
         if (isPlaying) pause();
         else resume();
@@ -175,14 +171,11 @@ export default function PlayerScreen() {
                 setSavedPresetId(preset.id);
             }
         } catch {
-            // best-effort — leave the button pressable so the user can retry
         } finally {
             setIsSaveBusy(false);
         }
     }
 
-    // No entitlement check yet — offline is free for everyone until Faz 4.1
-    // (RevenueCat) wires up a real gate here.
     async function handleToggleOffline() {
         if (!currentTrack || isOfflineBusy) return;
         setIsOfflineBusy(true);
@@ -196,18 +189,22 @@ export default function PlayerScreen() {
                 setIsOffline(true);
             }
         } catch {
-            // best-effort — leave the control pressable so the user can retry
         } finally {
             setIsOfflineBusy(false);
         }
     }
 
+    // 5. Guard Clause
+    if (!currentTrack)
+        return null;
+
+    // 6. JSX Render
     return (
         <ModalSheet>
             <StatusBar style="light" />
 
             <View style={styles.content}>
-                {/* Displays the session countdown timer as the central artwork. */}
+                {/* CENTRAL TIMER ARTWORK */}
                 <View style={styles.artworkWrap}>
                     <View style={styles.artworkCard}>
                         <PerspectiveGrid size={280} isPlaying={isPlaying} />

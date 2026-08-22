@@ -60,18 +60,12 @@ export default function RootLayout() {
         return () => data.subscription.unsubscribe();
     }, []);
 
-    // Warms the tracks catalog in the background as soon as the app launches,
-    // so screens that list tracks read from cache instead of each starting
-    // their own fetch on mount/focus.
+    // Preloads the track catalog on launch
     useEffect(() => {
         useTracksStore.getState().ensureLoaded();
     }, []);
 
-    // Configures the iOS session category for background playback (the
-    // `audio` UIBackgroundMode itself comes from react-native-audio-api's own
-    // config plugin, already baked into the native project) and wires lock
-    // screen / notification-center transport buttons to the playback store,
-    // so pressing play/pause/stop there stays in sync with the in-app state.
+    // Configures background audio session and lock screen controls
     useEffect(() => {
         AudioManager.setAudioSessionOptions({ iosCategory: 'playback' });
         AudioManager.requestNotificationPermissions().catch(() => { });

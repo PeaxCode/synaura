@@ -13,12 +13,12 @@ import PressableScale from '@/src/components/PressableScale';
 import { COLORS } from '@/src/constants/theme';
 import { continueAsGuest, signInWithApple, signInWithGoogle } from '@/src/data/auth';
 
+const styles = createStyles(COLORS);
+const auth = createAuthStyles(COLORS);
+
 type Submitting = 'none' | 'guest' | 'google' | 'apple';
 
 export default function WelcomeScreen() {
-    const styles = createStyles(COLORS);
-    const auth = createAuthStyles(COLORS);
-
     const [submitting, setSubmitting] = useState<Submitting>('none');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const busy = submitting !== 'none';

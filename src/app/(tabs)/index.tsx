@@ -15,6 +15,8 @@ import { useLibraryStore } from '@/src/store/libraryStore';
 import { usePlaybackStore } from '@/src/store/playbackStore';
 import { useTracksStore } from '@/src/store/tracksStore';
 
+const styles = createStyles(COLORS);
+
 function greetingForHour(hour: number) {
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
@@ -48,7 +50,6 @@ function getDayStreak(recentPlays: RecentPlay[]) {
 }
 
 export default function HomeScreen() {
-    const styles = createStyles(COLORS);
     const user = useAuthStore((state) => state.user);
     const userId = user?.id;
     const tracks = useTracksStore((state) => state.tracks);
