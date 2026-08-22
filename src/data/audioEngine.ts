@@ -10,26 +10,15 @@ export interface StemVoice {
     gain: GainNode;
 }
 
-// In-memory cache of decoded stem buffers, keyed by track id, so switching
-// away from a track and back doesn't refetch/redecode it from scratch.
-// AudioBuffers aren't tied to the AudioContext that decoded them (decoding
-// runs through a single native singleton decoder, keyed only by sample rate
-// — see react-native-audio-api's AudioDecoder) so a buffer decoded under one
-// (possibly since-closed) context is safe to reuse on any later context, as
-// long as every context shares the same sample rate, which they do here
-// (none of this app's `new AudioContext()` calls override it). Capped with
-// simple LRU eviction so browsing many tracks in one session doesn't grow
-// this unbounded.
+// In-memory LRU cache for decoded stem AudioBuffers (max 6 tracks)
 const MAX_CACHED_TRACKS = 6;
 const bufferCache = new Map<string, Record<StemLayer, AudioBuffer>>();
 
-// Decodes raw audio file URLs into AudioBuffers for all stem layers in a
-// track, or returns them from cache if this track was already decoded this
-// session.
+// Decodes raw audio file URLs into AudioBuffers with in-memory caching
 export async function decodeTrackBuffers(context: AudioContext, track: Track) {
     const cached = bufferCache.get(track.id);
     if (cached) {
-        // Re-insert to mark as most-recently-used (Map preserves insertion order).
+        // Re-insert to keep LRU order
         bufferCache.delete(track.id);
         bufferCache.set(track.id, cached);
         return cached;

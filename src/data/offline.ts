@@ -5,10 +5,7 @@ function trackDirectory(trackId: string) {
     return new Directory(Paths.document, 'offline-tracks', trackId);
 }
 
-// Stem layers aren't all the same remote format any more (real track vs. the
-// procedural silence loop on the other 3, see 21.08 roadmap note) — the local
-// file keeps whatever extension the source actually has instead of assuming
-// mp3, so the native decoder isn't handed a mislabeled file.
+// Preserves remote file extension (m4a/aac/mp3) for native audio decoding
 function extensionFromUrl(url: string): string {
     const match = /\.([a-zA-Z0-9]+)(?:\?.*)?$/.exec(url);
     return match ? match[1] : 'mp3';
@@ -22,9 +19,7 @@ export function isTrackOffline(track: Track): boolean {
     return STEM_LAYERS.every((layer) => stemFile(track.id, layer, track.stemUrls[layer]).exists);
 }
 
-// Downloads all 4 stem files for a track to local storage — no entitlement
-// check here (Faz 4.1/RevenueCat isn't wired up yet), the caller gates access.
-// `onProgress` reports the average fraction complete across all 4 layers.
+// Downloads all 4 stem files for offline playback with progress reporting
 export async function downloadTrackOffline(track: Track, onProgress?: (fraction: number) => void): Promise<void> {
     const dir = trackDirectory(track.id);
     if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
@@ -54,10 +49,7 @@ export function removeTrackOffline(trackId: string): void {
     if (dir.exists) dir.delete();
 }
 
-// What the audio engine should actually decode from — a local file for any
-// layer that's been downloaded, the remote Storage URL otherwise. A partial
-// download (e.g. interrupted mid-way) just falls back per-layer instead of
-// blocking playback entirely.
+// Returns local file URI if downloaded offline, otherwise falls back to remote Storage URL
 export function resolvePlaybackStemUrls(track: Track): Record<StemLayer, string> {
     const urls = {} as Record<StemLayer, string>;
     for (const layer of STEM_LAYERS) {
