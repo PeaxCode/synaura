@@ -13,9 +13,6 @@ interface Props {
 
 const STROKE_WIDTH = 1.5;
 
-// Same download-circle convention as most subscription music apps: an empty
-// ring, a ring that fills clockwise while `isDownloading`, then a filled
-// checkmark once `isDownloaded`.
 export default function DownloadRing({ size, progress, isDownloading, isDownloaded, color, trackColor }: Props) {
     const radius = (size - STROKE_WIDTH) / 2;
     const circumference = 2 * Math.PI * radius;

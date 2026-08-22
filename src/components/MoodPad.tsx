@@ -3,7 +3,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     SharedValue,
     runOnJS,
-    useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
 } from 'react-native-reanimated';
@@ -11,8 +10,8 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { COLORS } from '@/src/constants/theme';
 import { padQuadrant } from '@/src/data/onboarding';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const HANDLE = 34;
+const GLOW_RADIUS_RATIO = 0.62;
 
 interface Props {
     size: number;
@@ -26,6 +25,8 @@ interface Props {
 export default function MoodPad({ size, position, onPositionChange, onQuadrantChange, onFirstTouch }: Props) {
     const quadrant = useSharedValue(-1);
     const touched = useSharedValue(false);
+    const glowRadius = size * GLOW_RADIUS_RATIO;
+    const glowSize = glowRadius * 2;
 
     function applyPoint(px: number, py: number) {
         'worklet';
@@ -56,9 +57,12 @@ export default function MoodPad({ size, position, onPositionChange, onQuadrantCh
             applyPoint(e.x, e.y);
         });
 
-    const glowProps = useAnimatedProps(() => ({
-        cx: position.value.x * size,
-        cy: position.value.y * size,
+    // Uses native transforms to position glow without triggering SVG canvas redraws
+    const glowStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: position.value.x * size - glowRadius },
+            { translateY: position.value.y * size - glowRadius },
+        ],
     }));
 
     const handleStyle = useAnimatedStyle(() => ({
@@ -81,16 +85,18 @@ export default function MoodPad({ size, position, onPositionChange, onQuadrantCh
                     overflow: 'hidden',
                 }}
             >
-                <Svg width={size} height={size} style={{ position: 'absolute' }}>
-                    <Defs>
-                        <RadialGradient id="padGlow">
-                            <Stop offset="0" stopColor={COLORS.accent} stopOpacity={0.55} />
-                            <Stop offset="0.55" stopColor={COLORS.accent} stopOpacity={0.14} />
-                            <Stop offset="1" stopColor={COLORS.accent} stopOpacity={0} />
-                        </RadialGradient>
-                    </Defs>
-                    <AnimatedCircle animatedProps={glowProps} r={size * 0.62} fill="url(#padGlow)" />
-                </Svg>
+                <Animated.View style={[{ position: 'absolute', width: glowSize, height: glowSize }, glowStyle]}>
+                    <Svg width={glowSize} height={glowSize}>
+                        <Defs>
+                            <RadialGradient id="padGlow">
+                                <Stop offset="0" stopColor={COLORS.accent} stopOpacity={0.55} />
+                                <Stop offset="0.55" stopColor={COLORS.accent} stopOpacity={0.14} />
+                                <Stop offset="1" stopColor={COLORS.accent} stopOpacity={0} />
+                            </RadialGradient>
+                        </Defs>
+                        <Circle cx={glowRadius} cy={glowRadius} r={glowRadius} fill="url(#padGlow)" />
+                    </Svg>
+                </Animated.View>
 
                 <View style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(233,233,237,0.1)' }} />
                 <View style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: 'rgba(233,233,237,0.1)' }} />

@@ -18,6 +18,8 @@ interface Props {
     initialMode?: Mode;
 }
 
+const styles = createStyles(COLORS);
+
 // Renders a 2-column grid of tracks filtered by mode and category, used in Explore and session builder screens.
 export default function TrackGrid({
     tracks,
@@ -27,7 +29,6 @@ export default function TrackGrid({
     cardBackground = COLORS.surfaceElevated,
     initialMode = 'focus',
 }: Props) {
-    const styles = createStyles(COLORS);
     const [mode, setMode] = useState<Mode>(initialMode);
     const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
 

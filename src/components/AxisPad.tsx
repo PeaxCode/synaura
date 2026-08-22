@@ -10,9 +10,10 @@ interface Props {
     onPositionChange: (x: number, y: number) => void;
 }
 
+const styles = createStyles(COLORS);
+
 // Renders a MoodPad with labels indicating which musical stem each edge controls.
 export default function AxisPad({ size, position, onPositionChange }: Props) {
-    const styles = createStyles(COLORS);
 
     return (
         <View style={styles.block}>
